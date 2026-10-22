@@ -1,0 +1,131 @@
+{
+  "U_1465": [
+    {
+      "event_id": "doc_2026_09_11_key_rate",
+      "relevance_score": 0.87,
+      "relevance_reasons": [
+        "Клиент имеет кредит: ставка напрямую влияет на расходы по его обслуживанию",
+        "Тема новости совпадает с отраслью клиента"
+      ],
+      "has_insight": true
+    },
+    {
+      "event_id": "doc_2026_09_10_oil",
+      "relevance_score": 0.62,
+      "relevance_reasons": [
+        "Рост цен на топливо увеличивает стоимость доставки продукции"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_02_inflation",
+      "relevance_score": 0.41,
+      "relevance_reasons": [
+        "Инфляция влияет на закупочные цены в оптовой торговле"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_05_consumption",
+      "relevance_score": 0.38,
+      "relevance_reasons": [
+        "Рост розничных продаж — прямой сигнал для оптового поставщика продуктов"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_09_gold",
+      "relevance_score": 0.12,
+      "relevance_reasons": [
+        "Изменение курса косвенно влияет на закупки импортных товаров"
+      ],
+      "has_insight": false
+    }
+  ],
+  "U_51606": [
+    {
+      "event_id": "doc_2026_09_08_labor",
+      "relevance_score": 0.79,
+      "relevance_reasons": [
+        "Дефицит кадров в строительстве напрямую влияет на сроки работ",
+        "Тема совпадает с отраслью клиента"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_02_inflation",
+      "relevance_score": 0.71,
+      "relevance_reasons": [
+        "Замедление инфляции снижает нагрузку на сметы по госконтрактам"
+      ],
+      "has_insight": true
+    },
+    {
+      "event_id": "doc_2026_09_11_key_rate",
+      "relevance_score": 0.55,
+      "relevance_reasons": [
+        "У клиента нет кредита, но есть лизинг: стоимость обслуживания растёт"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_05_consumption",
+      "relevance_score": 0.33,
+      "relevance_reasons": [
+        "Рост потребления отражает спрос на коммерческую недвижимость"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_10_oil",
+      "relevance_score": 0.29,
+      "relevance_reasons": [
+        "Рост цен на топливо повышает стоимость логистики стройматериалов"
+      ],
+      "has_insight": false
+    }
+  ],
+  "U_57706": [
+    {
+      "event_id": "doc_2026_09_10_oil",
+      "relevance_score": 0.91,
+      "relevance_reasons": [
+        "Клиент торгует топливом: изменение оптовых цен напрямую влияет на выручку",
+        "Тема новости полностью совпадает с отраслью клиента"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_02_inflation",
+      "relevance_score": 0.58,
+      "relevance_reasons": [
+        "Инфляция влияет на цены закупки и на инфляционную нагрузку на лизинг"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_09_gold",
+      "relevance_score": 0.44,
+      "relevance_reasons": [
+        "Курс золота — индикатор курса доллара, а клиент работает с ВЭД"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_11_key_rate",
+      "relevance_score": 0.36,
+      "relevance_reasons": [
+        "У клиента нет кредита, но есть лизинг и гарантии"
+      ],
+      "has_insight": false
+    },
+    {
+      "event_id": "doc_2026_09_05_consumption",
+      "relevance_score": 0.18,
+      "relevance_reasons": [
+        "Клиент не продаёт конечные товары: прямой эффект слабый"
+      ],
+      "has_insight": false
+    }
+  ]
+}

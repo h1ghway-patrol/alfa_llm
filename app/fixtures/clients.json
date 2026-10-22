@@ -1,0 +1,152 @@
+[
+  {
+    "client_id": "U_1465",
+    "okved_code": "46.32",
+    "okved_name": "Оптовая торговля пищевыми продуктами",
+    "city": "Москва",
+    "region": "Москва",
+    "revenue_rub": 44400000000.0,
+    "revenue_band": "15-50 млрд ₽",
+    "employees_band": "более 250",
+    "age_band": "более 10 лет",
+    "ownership": "Частная",
+    "client_type": "CLIENT",
+    "products": ["loan", "leasing"],
+    "fts_countries": ["Грузия", "Азербайджан", "Туркмения"],
+    "group_id": "group_1032_sb",
+    "group_size": 3,
+    "is_large": true,
+    "is_demo": true,
+    "payments": {
+      "incoming_partners": 1230,
+      "outgoing_partners": 210
+    },
+    "tags": [
+      {
+        "code": "industry",
+        "label": "Оптовая торговля пищевыми продуктами",
+        "evidence": ["ОКВЭД 46.32 — оптовая торговля пищевыми продуктами"]
+      },
+      {
+        "code": "debt_sensitivity",
+        "label": "Чувствителен к ставке: есть кредит и лизинг",
+        "evidence": ["Кредит в портфеле банка", "Договор лизинга"]
+      },
+      {
+        "code": "currency_dependency",
+        "label": "Зависит от курса: работает с ВЭД",
+        "evidence": ["ВЭД с Грузией, Азербайджаном и Туркменией"]
+      },
+      {
+        "code": "group_position",
+        "label": "Входит в группу из 3 крупных компаний",
+        "evidence": ["Группа group_1032_sb: 3 крупных клиента"]
+      },
+      {
+        "code": "scale",
+        "label": "Крупный бизнес: выручка 44,4 млрд ₽",
+        "evidence": ["Выручка 44 400 000 000 ₽"]
+      }
+    ]
+  },
+  {
+    "client_id": "U_51606",
+    "okved_code": "41.20",
+    "okved_name": "Строительство зданий",
+    "city": "Казань",
+    "region": "Татарстан",
+    "revenue_rub": 25400000000.0,
+    "revenue_band": "15-50 млрд ₽",
+    "employees_band": "16-100",
+    "age_band": "5-10 лет",
+    "ownership": "Частная",
+    "client_type": "CLIENT",
+    "products": ["leasing", "guarantee"],
+    "fts_countries": [],
+    "group_id": null,
+    "group_size": null,
+    "is_large": true,
+    "is_demo": true,
+    "payments": {
+      "incoming_partners": 7,
+      "outgoing_partners": 27
+    },
+    "tags": [
+      {
+        "code": "industry",
+        "label": "Строительство зданий",
+        "evidence": ["ОКВЭД 41.20 — строительство зданий"]
+      },
+      {
+        "code": "debt_sensitivity",
+        "label": "Чувствителен к ставке, но без кредита: только лизинг и гарантии",
+        "evidence": ["Договор лизинга", "Банковская гарантия"]
+      },
+      {
+        "code": "currency_dependency",
+        "label": "Валютная зависимость не подтверждена: ВЭД не выявлено",
+        "evidence": []
+      },
+      {
+        "code": "group_position",
+        "label": "Не входит в группу крупных компаний",
+        "evidence": []
+      },
+      {
+        "code": "scale",
+        "label": "Крупный бизнес: выручка 25,4 млрд ₽",
+        "evidence": ["Выручка 25 400 000 000 ₽"]
+      }
+    ]
+  },
+  {
+    "client_id": "U_57706",
+    "okved_code": "46.71",
+    "okved_name": "Оптовая торговля топливом",
+    "city": "Москва",
+    "region": "Москва",
+    "revenue_rub": 105600000000.0,
+    "revenue_band": "50-150 млрд ₽",
+    "employees_band": "16-100",
+    "age_band": "более 10 лет",
+    "ownership": "Частная",
+    "client_type": "CLIENT",
+    "products": ["leasing", "guarantee"],
+    "fts_countries": ["Киргизия", "Казахстан"],
+    "group_id": "group_134402_sb",
+    "group_size": 4,
+    "is_large": true,
+    "is_demo": true,
+    "payments": {
+      "incoming_partners": 5,
+      "outgoing_partners": 4
+    },
+    "tags": [
+      {
+        "code": "industry",
+        "label": "Оптовая торговля топливом",
+        "evidence": ["ОКВЭД 46.71 — оптовая торговля топливом"]
+      },
+      {
+        "code": "debt_sensitivity",
+        "label": "Чувствителен к ставке, но без кредита: только лизинг и гарантии",
+        "evidence": ["Договор лизинга", "Банковская гарантия"]
+      },
+      {
+        "code": "currency_dependency",
+        "label": "Зависит от курса: работает с ВЭД",
+        "evidence": ["ВЭД с Киргизией и Казахстаном"]
+      },
+      {
+        "code": "group_position",
+        "label": "Входит в группу из 4 крупных компаний",
+        "evidence": ["Группа group_134402_sb: 4 крупных клиента"]
+      },
+      {
+        "code": "scale",
+        "label": "Крупный бизнес: выручка 105,6 млрд ₽",
+        "evidence": ["Выручка 105 600 000 000 ₽"]
+      }
+    ]
+  }
+]
