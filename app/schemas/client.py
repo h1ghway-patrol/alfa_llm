@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.common import Id
+
 ProductCode = Literal[
     "loan",
     "leasing",
@@ -76,7 +78,7 @@ class ClientSummary(BaseModel):
         }
     )
 
-    client_id: str = Field(description="Идентификатор клиента из исходных данных, например `U_1465`.")
+    client_id: Id = Field(description="Идентификатор клиента.")
     okved_code: str | None = Field(default=None, description="Код ОКВЭД, например `46.32`.")
     okved_name: str | None = Field(default=None, description="Название отрасли по ОКВЭД.")
     city: str | None = Field(default=None, description="Город.")
@@ -146,7 +148,7 @@ class ClientProfile(BaseModel):
         }
     )
 
-    client_id: str = Field(description="Идентификатор клиента из исходных данных, например `U_1465`.")
+    client_id: Id = Field(description="Идентификатор клиента.")
     okved_code: str | None = Field(default=None, description="Код ОКВЭД, например `46.32`.")
     okved_name: str | None = Field(default=None, description="Название отрасли по ОКВЭД.")
     city: str | None = Field(default=None, description="Город.")

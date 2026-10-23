@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import NonEmptyStr, Status
+from app.schemas.common import Id, NonEmptyStr, Status
 
 
 class NewsCreate(BaseModel):
@@ -57,7 +57,7 @@ class NewsCreateResponse(BaseModel):
         }
     )
 
-    event_id: str = Field(description="Идентификатор созданного события.")
+    event_id: Id = Field(description="Идентификатор созданного события.")
     title: str = Field(description="Заголовок новости.")
     status: Status = Field(description="Состояние обработки новости: `queued`, `running`, `done` или `failed`.")
     message: str = Field(description="Человекочитаемый результат операции.")
@@ -124,7 +124,7 @@ class TraceResponse(BaseModel):
         }
     )
 
-    run_id: str = Field(description="Запуск, к которому относится трассировка.")
+    run_id: Id = Field(description="Запуск, к которому относится трассировка.")
     steps: list[TraceStep] = Field(description="Шаги в порядке выполнения.")
 
 

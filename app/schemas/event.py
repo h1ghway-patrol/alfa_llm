@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import Topic
+from app.schemas.common import Id, Topic
 
 
 class EventFact(BaseModel):
@@ -57,10 +57,14 @@ class Event(BaseModel):
         }
     )
 
-    event_id: str = Field(description="Идентификатор события (новости).")
+    event_id: Id = Field(description="Идентификатор события (новости).")
     title: str = Field(description="Заголовок новости.")
-    published_at: datetime = Field(description="Дата и время публикации.")
-    source_name: str = Field(description="Название источника, например `Интерфакс`.")
+    published_at: datetime | None = Field(
+        default=None, description="Дата и время публикации. `null`, если в документе нет даты."
+    )
+    source_name: str | None = Field(
+        default=None, description="Название источника. `null`, если источник не указан."
+    )
     url: str | None = Field(default=None, description="Ссылка на оригинал, если она есть.")
     topics: list[Topic] = Field(description="Темы новости из фиксированной таксономии.")
     importance: float | None = Field(
@@ -96,10 +100,14 @@ class FeedItem(BaseModel):
         }
     )
 
-    event_id: str = Field(description="Идентификатор события (новости).")
+    event_id: Id = Field(description="Идентификатор события (новости).")
     title: str = Field(description="Заголовок новости.")
-    published_at: datetime = Field(description="Дата и время публикации.")
-    source_name: str = Field(description="Название источника.")
+    published_at: datetime | None = Field(
+        default=None, description="Дата и время публикации. `null`, если в документе нет даты."
+    )
+    source_name: str | None = Field(
+        default=None, description="Название источника. `null`, если источник не указан."
+    )
     topics: list[Topic] = Field(description="Темы новости из фиксированной таксономии.")
     relevance_score: float = Field(
         ge=0.0,

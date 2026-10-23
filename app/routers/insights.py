@@ -29,12 +29,13 @@ router = APIRouter(tags=["insights"])
 
 @router.post(
     "/clients/{client_id}/events/{event_id}/insight",
-    response_model=Insight,
+    response_model=None,
     summary="Запустить интерпретацию",
     responses={
+        200: {"model": Insight, "description": "Готовая интерпретация"},
+        202: {"model": Run, "description": "Интерпретация запущена в фоне, тело — статус запуска"},
         401: {"description": "Требуется токен"},
         404: {"description": "Клиент или событие не найдено"},
-        202: {"description": "Интерпретация запущена в фоне, тело — статус запуска"},
     },
 )
 def create_insight(

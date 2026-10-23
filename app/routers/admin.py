@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.config import get_settings
 from app.dependencies import require_role
-from app.runs import get_run, trace_steps
+from app.runs import get_run, trace_steps, usage_by_day
 from app.schemas.admin import (
     NewsCreate,
     NewsCreateResponse,
@@ -65,24 +65,27 @@ def create_news(
     },
 )
 def usage(user: UserOut = Depends(require_role("admin"))) -> UsageResponse:
-    """Показывает расход токенов по дням и остаток бюджета."""
-    today = date.today()
+    """Расход токенов по дням из трассы запусков.
+
+    Пока считает по шагам в памяти. Когда слоя БД хватит, источником станет
+    `usage_by_day` из `app/db/trace.py`, а форма ответа не изменится.
+    """
     days = [
         UsageDay(
-            date=today - timedelta(days=offset),
-            tokens_in=41200 - offset * 1300,
-            tokens_out=12800 - offset * 400,
-            requests=37 - offset,
-            cost_rub=12.4 - offset * 0.3,
+            date=entry["date"],
+            tokens_in=int(entry["tokens_in"]),
+            tokens_out=int(entry["tokens_out"]),
+            requests=int(entry["requests"]),
+            cost_rub=None,
         )
-        for offset in range(5)
+        for entry in usage_by_day()
     ]
-    days.reverse()
+    settings = get_settings()
     return UsageResponse(
         days=days,
         total_tokens=sum(day.tokens_in + day.tokens_out for day in days),
-        daily_limit_tokens=200000,
-        budget_rub=500.0,
+        daily_limit_tokens=settings.daily_token_limit_tokens,
+        budget_rub=settings.budget_rub,
     )
 
 
@@ -125,11 +128,3 @@ def run_trace(
     return TraceResponse(run_id=run.run_id, steps=steps)
 
 
-def added_news_count() -> int:
-    """Сколько новостей добавлено через админку."""
-    return len(_added_news)
-
-
-def now_utc() -> datetime:
-    """Текущее время в UTC."""
-    return datetime.now(timezone.utc)

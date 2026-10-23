@@ -9,7 +9,8 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import get_settings
 from app.schemas.auth import Role, UserOut
@@ -20,6 +21,11 @@ STUB_USERS: dict[str, tuple[int, str, Role]] = {
     "viewer": (1, "viewer", "viewer"),
     "admin": (2, "admin", "admin"),
 }
+
+bearer_scheme = HTTPBearer(
+    auto_error=False,
+    description="Токен из `POST /auth/login`. Кнопка Authorize вставляет его сюда.",
+)
 
 _sessions: dict[str, tuple[str, datetime]] = {}
 
@@ -60,18 +66,20 @@ def verify_credentials(username: str, password: str) -> UserOut:
     return UserOut(id=user_id, username=name, role=role)
 
 
-def get_current_user(request: Request) -> UserOut:
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> UserOut:
     """Достаёт текущего пользователя из заголовка `Authorization`."""
-    header = request.headers.get("Authorization", "")
-    scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer" or not token:
+    if credentials is None or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
                 "code": "unauthorized",
                 "message": "Требуется токен: заголовок Authorization: Bearer <токен>",
             },
+            headers={"WWW-Authenticate": "Bearer"},
         )
+    token = credentials.credentials
     session = _sessions.get(token)
     if session is None:
         raise HTTPException(

@@ -25,6 +25,26 @@ NonEmptyStr = Annotated[
 """Строка без пробелов по краям и непустая. Пустая строка после обрезки — ошибка валидации."""
 
 
+def _to_id_string(value: object) -> object:
+    """Приводит числовой идентификатор к строке.
+
+    В БД идентификаторы — INTEGER, а в API они строки: так фронт не зависит от
+    способа хранения. Приведение живёт в одном месте, поэтому слой БД может
+    отдавать числа как есть.
+    """
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return value
+
+
+Id = Annotated[
+    str,
+    BeforeValidator(_to_id_string),
+    Field(min_length=1, description="Идентификатор сущности. В API всегда строка, даже если в БД это число."),
+]
+"""Идентификатор сущности: строка в API, числа из БД приводятся автоматически."""
+
+
 DocKind = Literal["bank", "news"]
 """Тип документа: аналитика банка (`bank`) или внешняя новость (`news`)."""
 

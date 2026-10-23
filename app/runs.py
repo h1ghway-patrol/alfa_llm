@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from app.fixtures import get_client, get_event, get_insight, get_sources
 from app.schemas.insight import Claim, Consequences, Insight, Run
@@ -241,3 +241,24 @@ def trace_steps(run: StoredRun) -> list[TraceStep]:
 def known_sources() -> list[SourceFragment]:
     """Источники, на которые может ссылаться заглушка."""
     return get_sources()
+
+
+def usage_by_day() -> list[dict[str, object]]:
+    """Расход токенов по дням из записанных шагов.
+
+    Считается по трассе запусков, а не по выдуманным числам. Когда появится
+    слой БД, эта же агрегация переедет в запрос к `trace_step`.
+    """
+    days: dict[date, dict[str, object]] = {}
+    for run in _runs.values():
+        for step in run.steps:
+            day = step.created_at.date()
+            entry = days.setdefault(
+                day,
+                {"date": day, "tokens_in": 0, "tokens_out": 0, "requests": 0},
+            )
+            entry["tokens_in"] = int(entry["tokens_in"]) + step.tokens_in
+            entry["tokens_out"] = int(entry["tokens_out"]) + step.tokens_out
+            if step.step_type == "model_call":
+                entry["requests"] = int(entry["requests"]) + 1
+    return [days[day] for day in sorted(days)]

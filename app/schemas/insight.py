@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import ClaimKind, Status
+from app.schemas.common import ClaimKind, Id, Status
 
 
 class Claim(BaseModel):
@@ -36,7 +36,7 @@ class Claim(BaseModel):
             "`client` — данные профиля клиента."
         )
     )
-    source_ids: list[str] = Field(
+    source_ids: list[Id] = Field(
         description=(
             "Идентификаторы источников, на которые опирается утверждение. "
             "У `fact` и `bank` список непустой, у `ai` может быть пустым."
@@ -143,9 +143,9 @@ class Insight(BaseModel):
         }
     )
 
-    insight_id: str = Field(description="Идентификатор инсайта.")
-    client_id: str = Field(description="Клиент, для которого построена интерпретация.")
-    event_id: str = Field(description="Событие, к которому относится интерпретация.")
+    insight_id: Id = Field(description="Идентификатор инсайта.")
+    client_id: Id = Field(description="Клиент, для которого построена интерпретация.")
+    event_id: Id = Field(description="Событие, к которому относится интерпретация.")
     status: Status = Field(description="Статус интерпретации.")
     created_at: datetime = Field(description="Когда интерпретация была создана.")
     what_happened: list[Claim] = Field(description="Блок «Что произошло»: факты события со ссылками на источники.")
@@ -178,9 +178,9 @@ class Run(BaseModel):
         }
     )
 
-    run_id: str = Field(description="Идентификатор запуска.")
+    run_id: Id = Field(description="Идентификатор запуска.")
     status: Status = Field(description="Статус запуска: `queued`, `running`, `done` или `failed`.")
-    insight_id: str | None = Field(
+    insight_id: Id | None = Field(
         default=None,
         description="Идентификатор готового инсайта. Появляется, когда статус `done`.",
     )
@@ -243,12 +243,14 @@ class FeedbackRequest(BaseModel):
 
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [{"insight_id": "ins_2026_09_11_u_1465", "rating": 5, "comment": "Полезно"}]
+            "examples": [{"insight_id": "ins_2026_09_11_u_1465", "rating": 1, "comment": "Полезно"}]
         }
     )
 
-    insight_id: str = Field(description="К какой интерпретации относится оценка.")
-    rating: int = Field(ge=1, le=5, description="Оценка от 1 до 5.")
+    insight_id: Id = Field(description="К какой интерпретации относится оценка.")
+    rating: Literal[-1, 1] = Field(
+        description="Оценка: `1` — полезно (👍), `-1` — бесполезно (👎). Совпадает с ограничением в БД."
+    )
     comment: str | None = Field(default=None, max_length=1000, description="Комментарий, необязателен.")
 
 
@@ -262,4 +264,4 @@ class FeedbackResponse(BaseModel):
     )
 
     status: Literal["accepted"] = Field(description="Статус: `accepted` — оценка принята в работу.")
-    insight_id: str = Field(description="К какой интерпретации относится оценка.")
+    insight_id: Id = Field(description="К какой интерпретации относится оценка.")

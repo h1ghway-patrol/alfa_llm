@@ -1,151 +1,190 @@
 [
   {
     "client_id": "U_1465",
-    "okved_code": "46.32",
-    "okved_name": "Оптовая торговля пищевыми продуктами",
+    "okved_code": "46.34",
+    "okved_name": "Торговля оптовая напитками",
     "city": "Москва",
     "region": "Москва",
-    "revenue_rub": 44400000000.0,
+    "revenue_rub": 44401187115.0,
     "revenue_band": "15-50 млрд ₽",
-    "employees_band": "более 250",
-    "age_band": "более 10 лет",
-    "ownership": "Частная",
+    "employees_band": "Более 251",
+    "age_band": "16-25",
+    "ownership": "Частная собственность",
     "client_type": "CLIENT",
-    "products": ["loan", "leasing"],
-    "fts_countries": ["Грузия", "Азербайджан", "Туркмения"],
-    "group_id": "group_1032_sb",
-    "group_size": 3,
+    "products": [
+      "rko",
+      "loan",
+      "leasing"
+    ],
+    "fts_countries": [
+      "Грузия",
+      "Азербайджан",
+      "Туркменистан"
+    ],
+    "group_id": "group_134460_sb",
+    "group_size": 2,
     "is_large": true,
     "is_demo": true,
     "payments": {
-      "incoming_partners": 1230,
-      "outgoing_partners": 210
+      "incoming_partners": 1229,
+      "outgoing_partners": 209
     },
     "tags": [
       {
         "code": "industry",
-        "label": "Оптовая торговля пищевыми продуктами",
-        "evidence": ["ОКВЭД 46.32 — оптовая торговля пищевыми продуктами"]
+        "label": "Торговля оптовая напитками",
+        "evidence": [
+          "ОКВЭД 46.34 — Торговля оптовая напитками"
+        ]
       },
       {
         "code": "debt_sensitivity",
-        "label": "Чувствителен к ставке: есть кредит и лизинг",
-        "evidence": ["Кредит в портфеле банка", "Договор лизинга"]
+        "label": "Чувствителен к ставке: кредит, лизинг",
+        "evidence": [
+          "Продукт банка: кредит",
+          "Продукт банка: лизинг"
+        ]
       },
       {
         "code": "currency_dependency",
         "label": "Зависит от курса: работает с ВЭД",
-        "evidence": ["ВЭД с Грузией, Азербайджаном и Туркменией"]
+        "evidence": [
+          "Внешнеторговые операции: Грузия, Азербайджан, Туркменистан"
+        ]
       },
       {
         "code": "group_position",
-        "label": "Входит в группу из 3 крупных компаний",
-        "evidence": ["Группа group_1032_sb: 3 крупных клиента"]
+        "label": "Входит в группу из 2 крупных клиентов",
+        "evidence": [
+          "Группа group_134460_sb"
+        ]
       },
       {
         "code": "scale",
-        "label": "Крупный бизнес: выручка 44,4 млрд ₽",
-        "evidence": ["Выручка 44 400 000 000 ₽"]
+        "label": "Крупный бизнес",
+        "evidence": [
+          "Выручка 15-50 млрд ₽"
+        ]
       }
     ]
   },
   {
     "client_id": "U_51606",
-    "okved_code": "41.20",
-    "okved_name": "Строительство зданий",
+    "okved_code": "41.20.9",
+    "okved_name": "Прочие виды строительства жилых и нежилых зданий",
     "city": "Казань",
-    "region": "Татарстан",
-    "revenue_rub": 25400000000.0,
+    "region": "Республика Татарстан",
+    "revenue_rub": 25430120937.0,
     "revenue_band": "15-50 млрд ₽",
     "employees_band": "16-100",
-    "age_band": "5-10 лет",
-    "ownership": "Частная",
+    "age_band": "16-25",
+    "ownership": "Частная собственность",
     "client_type": "CLIENT",
-    "products": ["leasing", "guarantee"],
+    "products": [
+      "rko",
+      "guarantee",
+      "leasing"
+    ],
     "fts_countries": [],
-    "group_id": null,
-    "group_size": null,
+    "group_id": "group_133295_sb",
+    "group_size": 1,
     "is_large": true,
     "is_demo": true,
     "payments": {
-      "incoming_partners": 7,
-      "outgoing_partners": 27
+      "incoming_partners": 6,
+      "outgoing_partners": 26
     },
     "tags": [
       {
         "code": "industry",
-        "label": "Строительство зданий",
-        "evidence": ["ОКВЭД 41.20 — строительство зданий"]
+        "label": "Прочие виды строительства жилых и нежилых зданий",
+        "evidence": [
+          "ОКВЭД 41.20.9 — Прочие виды строительства жилых и нежилых зданий"
+        ]
       },
       {
         "code": "debt_sensitivity",
-        "label": "Чувствителен к ставке, но без кредита: только лизинг и гарантии",
-        "evidence": ["Договор лизинга", "Банковская гарантия"]
-      },
-      {
-        "code": "currency_dependency",
-        "label": "Валютная зависимость не подтверждена: ВЭД не выявлено",
-        "evidence": []
-      },
-      {
-        "code": "group_position",
-        "label": "Не входит в группу крупных компаний",
-        "evidence": []
+        "label": "Чувствителен к ставке: гарантия, лизинг",
+        "evidence": [
+          "Продукт банка: гарантия",
+          "Продукт банка: лизинг"
+        ]
       },
       {
         "code": "scale",
-        "label": "Крупный бизнес: выручка 25,4 млрд ₽",
-        "evidence": ["Выручка 25 400 000 000 ₽"]
+        "label": "Крупный бизнес",
+        "evidence": [
+          "Выручка 15-50 млрд ₽"
+        ]
       }
     ]
   },
   {
     "client_id": "U_57706",
     "okved_code": "46.71",
-    "okved_name": "Оптовая торговля топливом",
+    "okved_name": "Торговля оптовая твердым, жидким и газообразным топливом и подобными продуктами",
     "city": "Москва",
     "region": "Москва",
-    "revenue_rub": 105600000000.0,
-    "revenue_band": "50-150 млрд ₽",
+    "revenue_rub": 105596467908.0,
+    "revenue_band": "более 105 млрд ₽",
     "employees_band": "16-100",
-    "age_band": "более 10 лет",
-    "ownership": "Частная",
+    "age_band": "8-15",
+    "ownership": "Частная собственность",
     "client_type": "CLIENT",
-    "products": ["leasing", "guarantee"],
-    "fts_countries": ["Киргизия", "Казахстан"],
+    "products": [
+      "rko",
+      "guarantee",
+      "leasing",
+      "deposit"
+    ],
+    "fts_countries": [
+      "Киргизия",
+      "Казахстан"
+    ],
     "group_id": "group_134402_sb",
     "group_size": 4,
     "is_large": true,
     "is_demo": true,
     "payments": {
-      "incoming_partners": 5,
-      "outgoing_partners": 4
+      "incoming_partners": 4,
+      "outgoing_partners": 3
     },
     "tags": [
       {
         "code": "industry",
-        "label": "Оптовая торговля топливом",
-        "evidence": ["ОКВЭД 46.71 — оптовая торговля топливом"]
+        "label": "Торговля оптовая твердым, жидким и газообразным топливом и подобными продуктами",
+        "evidence": [
+          "ОКВЭД 46.71 — Торговля оптовая твердым, жидким и газообразным топливом и подобными продуктами"
+        ]
       },
       {
         "code": "debt_sensitivity",
-        "label": "Чувствителен к ставке, но без кредита: только лизинг и гарантии",
-        "evidence": ["Договор лизинга", "Банковская гарантия"]
+        "label": "Чувствителен к ставке: гарантия, лизинг",
+        "evidence": [
+          "Продукт банка: гарантия",
+          "Продукт банка: лизинг"
+        ]
       },
       {
         "code": "currency_dependency",
         "label": "Зависит от курса: работает с ВЭД",
-        "evidence": ["ВЭД с Киргизией и Казахстаном"]
+        "evidence": [
+          "Внешнеторговые операции: Киргизия, Казахстан"
+        ]
       },
       {
         "code": "group_position",
-        "label": "Входит в группу из 4 крупных компаний",
-        "evidence": ["Группа group_134402_sb: 4 крупных клиента"]
+        "label": "Входит в группу из 4 крупных клиентов",
+        "evidence": [
+          "Группа group_134402_sb"
+        ]
       },
       {
         "code": "scale",
-        "label": "Крупный бизнес: выручка 105,6 млрд ₽",
-        "evidence": ["Выручка 105 600 000 000 ₽"]
+        "label": "Крупный бизнес",
+        "evidence": [
+          "Выручка более 105 млрд ₽"
+        ]
       }
     ]
   }

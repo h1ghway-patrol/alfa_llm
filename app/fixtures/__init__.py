@@ -142,5 +142,11 @@ def get_feed(client_id: str, topic: str | None = None, limit: int = 20) -> list[
                 has_insight=entry["has_insight"],
             )
         )
-    items.sort(key=lambda item: (item.relevance_score, item.published_at.timestamp()), reverse=True)
+    items.sort(
+        key=lambda item: (
+            item.relevance_score,
+            item.published_at.timestamp() if item.published_at else 0.0,
+        ),
+        reverse=True,
+    )
     return items[:limit]

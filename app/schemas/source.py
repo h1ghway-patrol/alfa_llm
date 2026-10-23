@@ -4,7 +4,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import DocKind, Freshness
+from app.schemas.common import DocKind, Freshness, Id
 
 
 class SourceFragment(BaseModel):
@@ -27,7 +27,7 @@ class SourceFragment(BaseModel):
         }
     )
 
-    source_id: str = Field(description="Идентификатор фрагмента, на который ссылаются сноски в инсайте.")
+    source_id: Id = Field(description="Идентификатор фрагмента, на который ссылаются сноски в инсайте.")
     doc_title: str = Field(description="Заголовок документа-источника.")
     doc_kind: DocKind = Field(description="Тип документа: аналитика банка (`bank`) или новость (`news`).")
     doc_date: date | None = Field(

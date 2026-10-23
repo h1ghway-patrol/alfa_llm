@@ -14,7 +14,8 @@ env/
 !.env.example
 
 # Application data
-data/
+data/*
+!data/README.md
 *.db
 *.sqlite
 *.sqlite3

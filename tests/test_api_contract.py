@@ -14,7 +14,7 @@ def test_health(client: TestClient) -> None:
 def test_login_and_me(client: TestClient) -> None:
     response = client.post(
         "/auth/login",
-        json={"username": "viewer", "password": "viewer-password"},
+        json={"username": "viewer", "password": "viewer-demo"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -137,7 +137,7 @@ def test_ask_and_feedback(client: TestClient, viewer_headers: dict[str, str]) ->
 
     feedback = client.post(
         "/feedback",
-        json={"insight_id": "ins_2026_09_11_u_1465", "rating": 5, "comment": "Полезно"},
+        json={"insight_id": "ins_2026_09_11_u_1465", "rating": 1, "comment": "Полезно"},
         headers=viewer_headers,
     )
     assert feedback.status_code == 202
@@ -147,7 +147,9 @@ def test_ask_and_feedback(client: TestClient, viewer_headers: dict[str, str]) ->
 def test_admin_news_and_usage(client: TestClient, admin_headers: dict[str, str]) -> None:
     usage = client.get("/admin/usage", headers=admin_headers)
     assert usage.status_code == 200
-    assert usage.json()["days"]
+    body = usage.json()
+    assert set(body) == {"days", "total_tokens", "daily_limit_tokens", "budget_rub"}
+    assert body["total_tokens"] == sum(day["tokens_in"] + day["tokens_out"] for day in body["days"])
 
     news = client.post(
         "/admin/news",

@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from typing import Mapping
 from urllib.parse import urlparse
 
+from dotenv import load_dotenv
+
 ENVIRONMENTS = ("local", "dev", "staging", "production")
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
@@ -40,6 +42,8 @@ class Settings:
     request_id_header: str
     viewer_password: str
     admin_password: str
+    daily_token_limit_tokens: int | None
+    budget_rub: float | None
 
     @property
     def is_production(self) -> bool:
@@ -72,6 +76,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     Собирает все проблемы сразу и сообщает их одним сообщением: так при
     старте видно, что именно поправить.
     """
+    if env is None:
+        load_dotenv(override=False)
+
     source = os.environ if env is None else env
     problems: list[str] = []
 
@@ -115,11 +122,30 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
 
     request_id_header = read("REQUEST_ID_HEADER", DEFAULT_REQUEST_ID_HEADER) or DEFAULT_REQUEST_ID_HEADER
 
-    viewer_password = read("VIEWER_PASSWORD", "viewer-password")
-    admin_password = read("ADMIN_PASSWORD", "admin-password")
-    if viewer_password is None or admin_password is None:
-        viewer_password = viewer_password or ""
-        admin_password = admin_password or ""
+    viewer_password = read("VIEWER_PASSWORD", "viewer-demo") or "viewer-demo"
+    admin_password = read("ADMIN_PASSWORD", "admin-demo") or "admin-demo"
+
+    daily_token_limit_tokens: int | None = None
+    raw_limit = source.get("DAILY_TOKEN_LIMIT_TOKENS", "").strip()
+    if raw_limit:
+        try:
+            daily_token_limit_tokens = int(raw_limit)
+            if daily_token_limit_tokens <= 0:
+                raise ValueError
+        except ValueError:
+            problems.append(f"DAILY_TOKEN_LIMIT_TOKENS={raw_limit!r} — ожидается целое число больше нуля")
+            daily_token_limit_tokens = None
+
+    budget_rub: float | None = None
+    raw_budget = source.get("BUDGET_RUB", "").strip()
+    if raw_budget:
+        try:
+            budget_rub = float(raw_budget)
+            if budget_rub <= 0:
+                raise ValueError
+        except ValueError:
+            problems.append(f"BUDGET_RUB={raw_budget!r} — ожидается число больше нуля")
+            budget_rub = None
 
     if environment == "production" and cors_allow_credentials and "*" in cors_origins:
         problems.append("в production нельзя одновременно разрешать CORS_ALLOW_CREDENTIALS и Origin '*'")
@@ -141,6 +167,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         request_id_header=request_id_header,
         viewer_password=viewer_password,
         admin_password=admin_password,
+        daily_token_limit_tokens=daily_token_limit_tokens,
+        budget_rub=budget_rub,
     )
 
 
