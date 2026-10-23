@@ -9,6 +9,14 @@ from datetime import datetime, timezone
 from app.db.repositories import save_trace_step
 
 
+_ALL_USAGE = ("(SELECT created_at, tokens_in, tokens_out FROM trace_step"
+              " UNION ALL SELECT created_at, tokens_in, tokens_out FROM llm_usage)")
+
+
+def total_cost(conn: sqlite3.Connection, price_per_1k_in: float, price_per_1k_out: float) -> float:
+    return sum(d["cost"] for d in usage_by_day(conn, price_per_1k_in, price_per_1k_out))
+
+
 class StepHandle:
     def __init__(self) -> None:
         self.output = None
@@ -24,6 +32,7 @@ class StepHandle:
 
 
 class TraceRecorder:
+
     def __init__(self, conn: sqlite3.Connection, run_id: int) -> None:
         self.conn = conn
         self.run_id = run_id
@@ -40,7 +49,7 @@ class TraceRecorder:
         started = time.perf_counter()
         try:
             yield handle
-        except Exception as e: 
+        except Exception as e:
             handle.output = {"error": f"{type(e).__name__}: {e}"}
             raise
         finally:
@@ -59,7 +68,7 @@ def usage_by_day(
     since: str | None = None,
 ) -> list[dict]:
     sql = ("SELECT substr(created_at,1,10) AS day, SUM(tokens_in) AS tokens_in, SUM(tokens_out) AS tokens_out"
-           " FROM trace_step")
+           " FROM " + _ALL_USAGE)
     params: list = []
     if since:
         sql += " WHERE created_at >= ?"
@@ -76,7 +85,8 @@ def usage_by_day(
 def tokens_used_on(conn: sqlite3.Connection, day: str | None = None) -> int:
     day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     row = conn.execute(
-        "SELECT COALESCE(SUM(tokens_in + tokens_out), 0) AS n FROM trace_step WHERE substr(created_at,1,10) = ?",
+        "SELECT COALESCE(SUM(tokens_in + tokens_out), 0) AS n FROM " + _ALL_USAGE
+        + " WHERE substr(created_at,1,10) = ?",
         (day,),
     ).fetchone()
     return row["n"]

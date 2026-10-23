@@ -9,11 +9,11 @@ log = logging.getLogger(__name__)
 
 _TOKEN = re.compile(r"\w+", re.UNICODE)
 
-try:  
+try:
     import pymorphy3
 
     _MORPH = pymorphy3.MorphAnalyzer()
-except ImportError:  
+except ImportError:
     _MORPH = None
     log.warning("pymorphy3 не установлен: используется грубый стеммер, качество поиска ниже.")
 
@@ -50,8 +50,7 @@ def lemmas_text(text: str) -> str:
 
 
 def build_match_query(query: str) -> str | None:
-    """Безопасный MATCH: каждая лемма в кавычках, через OR. None, если искать нечего."""
-    tokens = list(dict.fromkeys(lemmatize(query)))  
+    tokens = list(dict.fromkeys(lemmatize(query)))
     if not tokens:
         return None
     return " OR ".join('"%s"' % t.replace('"', "") for t in tokens)

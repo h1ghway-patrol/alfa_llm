@@ -6,46 +6,43 @@ import sqlite3
 import statistics
 from collections import Counter
 
+from app.db.csvutil import check_columns, sniff_delimiter
+
 log = logging.getLogger(__name__)
 
-LARGE_THRESHOLD_RUB = 15_000_000_000         
-DEMO_IDS = ["U_1465", "U_51606", "U_57706"]   
+LARGE_THRESHOLD_RUB = 15_000_000_000
+DEMO_IDS = ["U_1465", "U_51606", "U_57706"]
 
 COLUMN_MAP = {
-    "id": "SYNTHETIC_U_ID",                     
-    "okved_code": "MAIN_OKVED",                 
-    "okved_name": "MAIN_OKVED_NAME",          
-    "city": "CITY_NAME",                       
-    "region": "REGION_NAME",                  
-    "revenue_rub": "REVENUE_COMPANY",           
-    "ownership": "OKFS_NAME",                   
-    "client_type": "CL_TYPE",                  
-    "has_factoring": "FACTORING",               
-    "has_fts": "FTS_FLAG",                     
-    "fts_countries": "FTS_COUNTRY_NAME",        
+    "id": "SYNTHETIC_U",
+    "okved_code": "MAINOKVED_CODE",
+    "okved_name": "MAINOKVED_NAME",
+    "city": "CITY",
+    "region": "REGION",
+    "revenue_rub": "REVENUE_COMPANY",
+    "employees_band": "AMOUNT_WORKERS_FNS_GRADATION",
+    "age_band": "COMPANY_AGE_YEARS_GRADATION",
+    "ownership": "OKFS_NAME",
+    "business_stage": "ECO_MARK_LABEL",
+    "client_type": "CL_TYPE",
+    "has_loan": "CL_PRODUCT_LOA_MARK",
+    "has_leasing": "CL_PRODUCT_LEA_MARK",
+    "has_guarantee": "CL_PRODUCT_GAR_MARK",
+    "has_deposit": "CL_PRODUCT_DEP_MARK",
+    "has_rko": "CL_PRODUCT_RKO_MARK",
+    "has_payroll": "CL_PRODUCT_ZPP_MARK",
+    "has_factoring": "FACTORING_MARK",
+    "has_fts": "FTS_FLAG",
+    "fts_countries": "FTS_COUNTRY_NAME",
     "group_id": "GROUP_ID",
     "key_owner_mark": "NEGATIVEMARK",
 }
 
-PRODUCT_MAP = {
-    "has_loan":      "PRODUCT_CL_CREDIT",
-    "has_leasing":   "PRODUCT_CL_LEASING",
-    "has_guarantee": "PRODUCT_CL_GUARANTEE",
-    "has_deposit":   "PRODUCT_CL_DEPOSIT",
-    "has_rko":       "PRODUCT_CL_RKO",
-    "has_payroll":   "PRODUCT_CL_PAYROLL",
-}
+FLAG_COLS = ["has_loan", "has_leasing", "has_guarantee", "has_deposit", "has_rko",
+             "has_payroll", "has_factoring", "has_fts", "key_owner_mark"]
 
-FLAG_COLS = list(PRODUCT_MAP) + ["has_factoring", "has_fts"]
+DB_COLUMNS = list(COLUMN_MAP) + ["revenue_band", "group_size", "is_large", "is_demo"]
 
-DB_COLUMNS = [
-    "id", "okved_code", "okved_name", "city", "region", "revenue_rub",
-    "ownership", "client_type",
-    "has_loan", "has_leasing", "has_guarantee", "has_deposit",
-    "has_rko", "has_payroll", "has_factoring", "has_fts", "fts_countries",
-    "group_id", "key_owner_mark",
-    "revenue_band", "group_size", "is_large", "is_demo",
-]
 
 def _clean(v: str | None) -> str | None:
     if v is None:
@@ -54,13 +51,24 @@ def _clean(v: str | None) -> str | None:
     return v if v and v.lower() not in ("nan", "none", "null") else None
 
 
-def _flag(v: str | None) -> int | None:
+_TRUE = {"да", "yes", "true", "y", "t"}
+_FALSE = {"нет", "no", "false", "n", "f"}
+_UNPARSED: Counter = Counter()
+
+
+def _flag(v: str | None, col: str = "?") -> int | None:
     v = _clean(v)
     if v is None:
         return None
+    low = v.lower()
+    if low in _TRUE:
+        return 1
+    if low in _FALSE:
+        return 0
     try:
         return 1 if float(v.replace(",", ".")) >= 0.5 else 0
     except ValueError:
+        _UNPARSED[col] += 1
         return None
 
 
@@ -74,31 +82,25 @@ def _num(v: str | None) -> float | None:
         return None
 
 
+def check_header(csv_path: str) -> dict:
+    return check_columns(csv_path, COLUMN_MAP)
+
+
 def read_rows(csv_path: str) -> list[dict]:
     with open(csv_path, encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f, delimiter=";")
-        fields = reader.fieldnames or []
-
-        needed = list(COLUMN_MAP.values()) + list(PRODUCT_MAP.values())
-        missing = [c for c in needed if c not in fields]
+        delim = sniff_delimiter(f.readline())
+        f.seek(0)
+        reader = csv.DictReader(f, delimiter=delim)
+        missing = [c for c in COLUMN_MAP.values() if c not in (reader.fieldnames or [])]
         if missing:
             raise ValueError(
-                "В CSV нет колонок: %s.\nЕсть: %s\n"
-                "Исправьте COLUMN_MAP/PRODUCT_MAP в app/db/load_clients.py"
-                % (missing, fields)
+                "В CSV нет колонок: %s.\nЕсть: %s\nИсправьте COLUMN_MAP в app/db/load_clients.py"
+                % (missing, reader.fieldnames)
             )
-
-        counts = Counter(fields)
-        dupes = [c for c, n in counts.items() if n > 1 and c]
-        if dupes:
-            log.warning("В шапке CSV повторяются колонки: %s "
-                        "(DictReader возьмёт последнюю)", dupes)
-
         return list(reader)
 
 
 def revenue_band_edges(large_revenues: list[float]) -> list[float]:
-    """Границы корзин по квартилям среди крупных (от 15 млрд до максимума)."""
     if len(large_revenues) < 4:
         return []
     return statistics.quantiles(large_revenues, n=4)
@@ -117,8 +119,10 @@ def revenue_band(rev: float | None, edges: list[float]) -> str | None:
 
 
 def load_clients(conn: sqlite3.Connection, csv_path: str, only_large: bool = True) -> dict:
+    _UNPARSED.clear()
     raw = read_rows(csv_path)
     log.info("Прочитано строк: %d", len(raw))
+
     counts = Counter(r[COLUMN_MAP["id"]].strip() for r in raw)
     dup_ids = {i for i, n in counts.items() if n > 1}
     rows = [r for r in raw if r[COLUMN_MAP["id"]].strip() not in dup_ids]
@@ -131,14 +135,12 @@ def load_clients(conn: sqlite3.Connection, csv_path: str, only_large: bool = Tru
     parsed = []
     for r in rows:
         rec = {db: _clean(r[csv_col]) for db, csv_col in COLUMN_MAP.items()}
+        rec["id"] = rec["id"]
         rec["revenue_rub"] = _num(r[COLUMN_MAP["revenue_rub"]])
-        for db_col, csv_col in PRODUCT_MAP.items():
-            rec[db_col] = _flag(r[csv_col])
-        rec["has_factoring"] = _flag(r[COLUMN_MAP["has_factoring"]])
-        rec["has_fts"] = _flag(r[COLUMN_MAP["has_fts"]])
+        for c in FLAG_COLS:
+            rec[c] = _flag(r[COLUMN_MAP[c]], c)
         rec["group_size"] = group_counts.get(rec["group_id"]) if rec["group_id"] else None
-        rec["is_large"] = int(rec["revenue_rub"] is not None
-                              and rec["revenue_rub"] > LARGE_THRESHOLD_RUB)
+        rec["is_large"] = int(rec["revenue_rub"] is not None and rec["revenue_rub"] > LARGE_THRESHOLD_RUB)
         parsed.append(rec)
 
     edges = revenue_band_edges([p["revenue_rub"] for p in parsed if p["is_large"]])
@@ -153,7 +155,6 @@ def load_clients(conn: sqlite3.Connection, csv_path: str, only_large: bool = Tru
         log.warning("Демо-клиенты не найдены среди загружаемых: %s", missing_demo)
     for p in to_load:
         p["is_demo"] = int(p["id"] in DEMO_IDS)
-
 
     cols = DB_COLUMNS
     sql = (
@@ -171,5 +172,18 @@ def load_clients(conn: sqlite3.Connection, csv_path: str, only_large: bool = Tru
         "large": sum(p["is_large"] for p in parsed),
         "demo": sum(p["is_demo"] for p in to_load),
     }
+    if _UNPARSED:
+        stats["unparsed_flags"] = dict(_UNPARSED)
+        log.warning("Не распознаны значения флагов (сохранены как NULL): %s", dict(_UNPARSED))
     log.info("Итог загрузки клиентов: %s", stats)
     return stats
+
+
+if __name__ == "__main__":
+    import json
+    import sys
+    rep = check_header(sys.argv[1])
+    print("Не найдены колонки COLUMN_MAP:" if rep["missing"] else "Все колонки COLUMN_MAP найдены.")
+    print(json.dumps(rep["missing"], ensure_ascii=False, indent=2))
+    print("Колонки CSV, которые не загружаются:", rep["unmapped"])
+    sys.exit(1 if rep["missing"] else 0)

@@ -1,15 +1,15 @@
 CREATE TABLE IF NOT EXISTS company (
-    id               TEXT PRIMARY KEY,                 
+    id               TEXT PRIMARY KEY,
     okved_code       TEXT,
     okved_name       TEXT,
     city             TEXT,
     region           TEXT,
-    revenue_rub      REAL,                            
+    revenue_rub      REAL,
     revenue_band     TEXT,
     employees_band   TEXT,
-    company_age_band TEXT,
+    age_band         TEXT,
     ownership        TEXT,
-    business_stage   TEXT,                           
+    business_stage   TEXT,
     client_type      TEXT,
     has_loan         INTEGER CHECK (has_loan      IN (0,1)),
     has_leasing      INTEGER CHECK (has_leasing   IN (0,1)),
@@ -18,11 +18,11 @@ CREATE TABLE IF NOT EXISTS company (
     has_rko          INTEGER CHECK (has_rko       IN (0,1)),
     has_payroll      INTEGER CHECK (has_payroll   IN (0,1)),
     has_factoring    INTEGER CHECK (has_factoring IN (0,1)),
-    has_fts          INTEGER CHECK (has_fts       IN (0,1)),   
-    fts_countries    TEXT,                             
+    has_fts          INTEGER CHECK (has_fts       IN (0,1)),
+    fts_countries    TEXT,
     group_id         TEXT,
     group_size       INTEGER,
-    key_owner_mark   TEXT,                            
+    key_owner_mark   INTEGER CHECK (key_owner_mark IN (0,1)),
     is_large         INTEGER NOT NULL DEFAULT 0 CHECK (is_large IN (0,1)),
     is_demo          INTEGER NOT NULL DEFAULT 0 CHECK (is_demo  IN (0,1))
 );
@@ -39,17 +39,28 @@ CREATE TABLE IF NOT EXISTS payment (
 );
 CREATE INDEX IF NOT EXISTS idx_payment_beneficiary ON payment(beneficiary);
 
+CREATE TABLE IF NOT EXISTS counterparty (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    f_id        TEXT NOT NULL,
+    client_id   TEXT,
+    city_name   TEXT,
+    region_name TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_counterparty_pair ON counterparty(f_id, COALESCE(client_id, ''));
+CREATE INDEX IF NOT EXISTS idx_counterparty_f      ON counterparty(f_id);
+CREATE INDEX IF NOT EXISTS idx_counterparty_client ON counterparty(client_id);
+
 CREATE TABLE IF NOT EXISTS document (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     kind         TEXT NOT NULL CHECK (kind IN ('bank','news')),
     title        TEXT NOT NULL,
-    doc_date     TEXT,                               
+    doc_date     TEXT,
     source_name  TEXT,
     url          TEXT,
     status       TEXT NOT NULL DEFAULT 'unknown'
                  CHECK (status IN ('actual','outdated','unknown')),
     content_hash TEXT NOT NULL UNIQUE,
-    facts_json   TEXT,                                 -- для новостей
+    facts_json   TEXT,
     created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_document_kind_date ON document(kind, doc_date);
@@ -67,7 +78,7 @@ CREATE TABLE IF NOT EXISTS chunk (
     section_path TEXT,
     position     INTEGER NOT NULL,
     text         TEXT NOT NULL,
-    lemmas       TEXT NOT NULL DEFAULT '',            
+    lemmas       TEXT NOT NULL DEFAULT '',
     UNIQUE (doc_id, position)
 );
 CREATE INDEX IF NOT EXISTS idx_chunk_doc ON chunk(doc_id);
@@ -76,7 +87,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunk_fts USING fts5(
     lemmas,
     content='chunk',
     content_rowid='id',
-    tokenize='unicode61 remove_diacritics 0'           
+    tokenize='unicode61 remove_diacritics 0'
 );
 CREATE TRIGGER IF NOT EXISTS chunk_ai AFTER INSERT ON chunk BEGIN
     INSERT INTO chunk_fts(rowid, lemmas) VALUES (new.id, new.lemmas);
@@ -138,7 +149,7 @@ CREATE TABLE IF NOT EXISTS trace_step (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id      INTEGER NOT NULL REFERENCES run(id) ON DELETE CASCADE,
     step_no     INTEGER NOT NULL,
-    step_type   TEXT NOT NULL,                        
+    step_type   TEXT NOT NULL,
     tool_name   TEXT,
     input_json  TEXT,
     output_json TEXT,
@@ -164,12 +175,12 @@ CREATE TABLE IF NOT EXISTS session (
     user_id    INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     expires_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_session_expires ON session(expires_at);
+
 CREATE TABLE IF NOT EXISTS feedback (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     insight_id INTEGER NOT NULL REFERENCES insight(id)  ON DELETE CASCADE,
     user_id    INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-    rating     INTEGER NOT NULL CHECK (rating IN (-1, 1)),   -- 👎 / 👍
+    rating     INTEGER NOT NULL CHECK (rating IN (-1, 1)),
     comment    TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
@@ -179,5 +190,21 @@ CREATE TABLE IF NOT EXISTS access_log (
     user_id    INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
     client_id  TEXT,
     action     TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    purpose    TEXT NOT NULL,
+    model      TEXT,
+    tokens_in  INTEGER NOT NULL DEFAULT 0,
+    tokens_out INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
+
+CREATE TABLE IF NOT EXISTS llm_cache (
+    key        TEXT PRIMARY KEY,
+    text       TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );

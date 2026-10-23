@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.db.connection import connect, default_db_path, init_db
 from app.db.load_clients import load_clients
+from app.db.load_counterparties import load_counterparties
 from app.db.load_payments import load_payments
 from app.db.passwords import hash_password
 from app.db.repositories import create_user
@@ -15,7 +16,6 @@ log = logging.getLogger("build")
 
 
 def seed_users(conn) -> None:
-    """Тестовые учётки. Пароли можно переопределить через окружение."""
     for username, role in (("viewer", "viewer"), ("admin", "admin")):
         password = os.environ.get(f"SEED_{username.upper()}_PASSWORD", f"{username}-demo")
         h, salt = hash_password(password)
@@ -24,7 +24,7 @@ def seed_users(conn) -> None:
 
 
 def build(db_path: str, clients_csv: str | None = None, payments_path: str | None = None,
-          all_clients: bool = False, rebuild: bool = False) -> None:
+          all_clients: bool = False, rebuild: bool = False, counterparties_path: str | None = None) -> None:
     if rebuild and db_path != ":memory:":
         for suffix in ("", "-wal", "-shm"):
             Path(db_path + suffix).unlink(missing_ok=True)
@@ -35,6 +35,8 @@ def build(db_path: str, clients_csv: str | None = None, payments_path: str | Non
             load_clients(conn, clients_csv, only_large=not all_clients)
         if payments_path:
             load_payments(conn, payments_path)
+        if counterparties_path:
+            load_counterparties(conn, counterparties_path)
         seed_users(conn)
     finally:
         conn.close()
@@ -45,11 +47,12 @@ def main() -> None:
     ap.add_argument("--db", default=default_db_path())
     ap.add_argument("--clients", help="путь к df_Uid_data_hack.csv")
     ap.add_argument("--payments", help="путь к df_Uid_payment_hack_2.csv.gz")
+    ap.add_argument("--counterparties", help="путь к CSV контрагентов (SYNTHETIC_F, CITY_NAME, RC_NAME, SYNTHETIC_U)")
     ap.add_argument("--all-clients", action="store_true", help="грузить всех, а не только крупных")
     ap.add_argument("--rebuild", action="store_true", help="удалить БД и собрать с нуля")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    build(args.db, args.clients, args.payments, args.all_clients, args.rebuild)
+    build(args.db, args.clients, args.payments, args.all_clients, args.rebuild, args.counterparties)
     log.info("Готово: %s", args.db)
 
 
