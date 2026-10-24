@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import sqlite3
 from functools import lru_cache
@@ -14,8 +15,15 @@ try:
 
     _MORPH = pymorphy3.MorphAnalyzer()
 except ImportError:
+    if os.environ.get("REQUIRE_PYMORPHY") == "1":
+        raise RuntimeError("REQUIRE_PYMORPHY=1, но pymorphy3 не установлен: pip install pymorphy3") from None
     _MORPH = None
     log.warning("pymorphy3 не установлен: используется грубый стеммер, качество поиска ниже.")
+
+
+def lemmatizer_name() -> str:
+    return "pymorphy3" if _MORPH is not None else "crude-stemmer"
+
 
 _ENDINGS = sorted(
     ["ости", "ость", "ение", "ения", "ами", "ями", "ого", "его", "ому", "ему", "ыми", "ими",

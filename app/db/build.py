@@ -15,12 +15,20 @@ from app.db.repositories import create_user
 log = logging.getLogger("build")
 
 
+def _password_for(username: str) -> str:
+    upper = username.upper()
+    for name in (f"{upper}_PASSWORD", f"SEED_{upper}_PASSWORD"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return f"{username}-demo"
+
+
 def seed_users(conn) -> None:
     for username, role in (("viewer", "viewer"), ("admin", "admin")):
-        password = os.environ.get(f"SEED_{username.upper()}_PASSWORD", f"{username}-demo")
-        h, salt = hash_password(password)
+        h, salt = hash_password(_password_for(username))
         create_user(conn, username, h, salt, role)
-    log.warning("Созданы тестовые учётки viewer/admin. Для боевого запуска смените пароли через окружение.")
+    log.warning("Созданы тестовые учётки viewer/admin. Для боевого запуска задайте VIEWER_PASSWORD и ADMIN_PASSWORD.")
 
 
 def build(db_path: str, clients_csv: str | None = None, payments_path: str | None = None,
@@ -51,6 +59,11 @@ def main() -> None:
     ap.add_argument("--all-clients", action="store_true", help="грузить всех, а не только крупных")
     ap.add_argument("--rebuild", action="store_true", help="удалить БД и собрать с нуля")
     args = ap.parse_args()
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     build(args.db, args.clients, args.payments, args.all_clients, args.rebuild, args.counterparties)
     log.info("Готово: %s", args.db)

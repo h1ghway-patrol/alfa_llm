@@ -1,0 +1,3 @@
+#   pip install -r requirements.txt -r requirements-core.txt
+pymorphy3>=2.0      # лемматизация для поиска (без неё включается грубый запасной стеммер)
+PyYAML>=6.0         # конфиги app/ml/config/*.yaml
