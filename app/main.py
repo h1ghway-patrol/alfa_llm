@@ -1,10 +1,3 @@
-"""Сборка приложения: настройки, логирование, CORS, роутеры, схемы OpenAPI.
-
-Приложение падает при старте с понятным текстом, если конфигурация из
-окружения не читается: лучше не подняться вовсе, чем работать с молчаливыми
-неверными значениями.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -101,7 +94,6 @@ def create_app() -> FastAPI:
 
     @app.get("/health", response_model=HealthResponse, tags=["health"], summary="Живость сервиса")
     def health() -> HealthResponse:
-        """Проверка живости: сервис отвечает и готов принимать запросы."""
         return HealthResponse(status="ok", message="app is running")
 
     app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
@@ -110,7 +102,6 @@ def create_app() -> FastAPI:
 
 
 def main() -> int:
-    """Точка входа: поднимает приложение."""
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, log_config=None)

@@ -1,0 +1,24 @@
+weights: {topic_overlap: 0.30, exposure: 0.30, industry: 0.10, freshness: 0.15, importance: 0.15}
+threshold: 0.35
+freshness_half_life_days: 14
+max_reasons: 3
+
+tag_topics:
+  debt_sensitive: ["ключевая ставка и ДКП", "кредитование", "инфляция"]
+  fx_exposed:     ["курс и валюта", "геополитика"]
+  large_scale:    []
+  group_member:   []
+
+exposure:
+  - {topic: "ключевая ставка и ДКП", tag: debt_sensitive, weight: 1.0,
+     reason: "Новость о ключевой ставке, а у клиента есть долговые продукты банка ({evidence}): меняется стоимость долга"}
+  - {topic: "кредитование", tag: debt_sensitive, weight: 0.8,
+     reason: "Новость о кредитовании, а у клиента есть долговые продукты ({evidence})"}
+  - {topic: "инфляция", tag: debt_sensitive, weight: 0.5,
+     reason: "Инфляция влияет на ставки, а у клиента есть долговая нагрузка ({evidence})"}
+  - {topic: "курс и валюта", tag: fx_exposed, weight: 1.0,
+     reason: "Курсовая новость, а клиент ведёт внешнеэкономическую деятельность ({evidence})"}
+  - {topic: "геополитика", tag: fx_exposed, weight: 0.6,
+     reason: "Геополитика влияет на ВЭД клиента ({evidence})"}
+  - {topic: "нефть и топливо", tag: fuel_trade, weight: 1.0,
+     reason: "Новость о нефти и топливе, а клиент работает на топливном рынке ({evidence})"}
