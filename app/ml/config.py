@@ -10,7 +10,12 @@ _BASE = Path(__file__).parent
 
 @lru_cache(maxsize=None)
 def load_config(name: str) -> dict:
-    return yaml.safe_load((_BASE / "config" / name).read_text(encoding="utf-8"))
+    path = _BASE / "config" / name
+    if not path.exists():
+        example = path.with_name(f"{path.stem}.example{path.suffix}")
+        if example.exists():
+            path = example
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 @lru_cache(maxsize=None)

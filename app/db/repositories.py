@@ -149,6 +149,20 @@ def get_insight(conn, client_id: str, doc_id: int) -> dict | None:
     return d
 
 
+def get_insight_by_id(conn, insight_id: int) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM insight WHERE id = ? AND status = 'done'", (insight_id,)
+    ).fetchone()
+    if row is None:
+        return None
+    d = dict(row)
+    d["body"] = json.loads(d.pop("body_json"))
+    d["sources"] = [dict(r) for r in conn.execute(
+        "SELECT claim_key, kind, chunk_id, doc_id, client_feature FROM insight_source"
+        " WHERE insight_id = ? ORDER BY id", (d["id"],))]
+    return d
+
+
 def get_source(conn, chunk_id: int) -> dict | None:
     row = conn.execute(
         "SELECT c.id AS source_id, d.title AS doc_title, d.kind AS doc_kind, d.doc_date,"
@@ -286,8 +300,32 @@ def top_counterparties(conn, client_id: str, direction: str = "out", limit: int 
     me, other = ("payer", "beneficiary") if direction == "out" else ("beneficiary", "payer")
     rows = conn.execute(
         f"SELECT p.{other} AS counterparty_id, p.amount_rub, p.cnt,"
-        f" (SELECT city_name   FROM counterparty g WHERE g.f_id = p.{other} ORDER BY g.id LIMIT 1) AS city_name,"
-        f" (SELECT region_name FROM counterparty g WHERE g.f_id = p.{other} ORDER BY g.id LIMIT 1) AS region_name"
+        f" (SELECT city_name   FROM counterparty g WHERE g.f_id = p.{other} OR g.client_id = p.{other}"
+        f"  ORDER BY g.id LIMIT 1) AS city_name,"
+        f" (SELECT region_name FROM counterparty g WHERE g.f_id = p.{other} OR g.client_id = p.{other}"
+        f"  ORDER BY g.id LIMIT 1) AS region_name"
         f" FROM payment p WHERE p.{me} = ? ORDER BY p.amount_rub DESC LIMIT ?",
         (client_id, limit)).fetchall()
     return [dict(r) for r in rows]
+
+
+def client_counterparty_geo(conn, client_id: str) -> dict[str, list[str]]:
+    """Уникальные города и регионы контрагентов клиента.
+
+    Учитываются и платежи, и прямая привязка контрагента к клиенту: у одной
+    записи `SYNTHETIC_F` может не быть `SYNTHETIC_U`, но связь видна по платежам.
+    """
+    rows = conn.execute(
+        "WITH partners(id) AS ("
+        "  SELECT beneficiary FROM payment WHERE payer = ?"
+        "  UNION SELECT payer FROM payment WHERE beneficiary = ?"
+        ") SELECT DISTINCT g.city_name, g.region_name FROM counterparty g"
+        " WHERE g.f_id IN (SELECT id FROM partners)"
+        "    OR g.client_id IN (SELECT id FROM partners)"
+        "    OR g.client_id = ?"
+        " ORDER BY g.region_name, g.city_name",
+        (client_id, client_id, client_id),
+    ).fetchall()
+    cities = sorted({r["city_name"] for r in rows if r["city_name"]})
+    regions = sorted({r["region_name"] for r in rows if r["region_name"]})
+    return {"cities": cities, "regions": regions}

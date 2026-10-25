@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import ConfigError, load_settings
 from app.errors import register_exception_handlers
@@ -58,6 +61,14 @@ def create_app() -> FastAPI:
     settings = load_settings()
     setup_logging(settings.log_level)
 
+    if settings.use_db:
+        from app.db.connection import verify_db
+
+        try:
+            verify_db(settings.db_path)
+        except RuntimeError as exc:
+            raise ConfigError(str(exc)) from exc
+
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
@@ -95,6 +106,14 @@ def create_app() -> FastAPI:
     @app.get("/health", response_model=HealthResponse, tags=["health"], summary="Живость сервиса")
     def health() -> HealthResponse:
         return HealthResponse(status="ok", message="app is running")
+
+    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+    if frontend_dir.is_dir():
+        app.mount("/ui", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+
+        @app.get("/", include_in_schema=False)
+        def frontend_index() -> RedirectResponse:
+            return RedirectResponse(url="/ui/")
 
     app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
 

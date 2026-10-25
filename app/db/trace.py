@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -67,8 +66,8 @@ def usage_by_day(
     price_per_1k_out: float = 0.0,
     since: str | None = None,
 ) -> list[dict]:
-    sql = ("SELECT substr(created_at,1,10) AS day, SUM(tokens_in) AS tokens_in, SUM(tokens_out) AS tokens_out"
-           " FROM " + _ALL_USAGE)
+    sql = ("SELECT substr(created_at,1,10) AS day, SUM(tokens_in) AS tokens_in, SUM(tokens_out) AS tokens_out,"
+           " COUNT(*) AS requests FROM " + _ALL_USAGE)
     params: list = []
     if since:
         sql += " WHERE created_at >= ?"

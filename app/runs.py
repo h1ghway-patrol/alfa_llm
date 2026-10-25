@@ -1,7 +1,8 @@
-"""Заглушка агента и запуск интерпретации.
+"""Запуски интерпретации: память для фикстур и БД для рабочего режима.
 
-Держит запуск в памяти, имитирует фоновую работу и отдаёт заготовленный
-инсайт. Задача B-6 заменит это на настоящего агента и запись в БД.
+В режиме фикстур запуск и инсайт живут в памяти процесса. При `USE_DB=true`
+запуск, трасса и инсайт пишутся в SQLite, а текст интерпретации строит агент
+из `app.ml.agent` с выбранным провайдером LLM.
 """
 
 from __future__ import annotations
@@ -9,9 +10,15 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timezone
 
-from app.fixtures import get_client, get_event, get_insight, get_sources
+from app.config import get_settings
+from app.db import repositories as repo
+from app.db.ids import InvalidId, parse_id
+from app.db.mappers import to_insight, to_trace_step
+from app.fixtures import get_client, get_event, get_sources
+from app.schemas.admin import TraceStep as TraceStepOut
 from app.schemas.insight import Claim, Consequences, Insight, Run
 from app.schemas.source import SourceFragment
+from app.store import db_mode, db_session
 
 
 class TraceStep:
@@ -43,10 +50,11 @@ class TraceStep:
 
 
 class StoredRun:
-    """Запуск интерпретации в памяти."""
+    """Запуск интерпретации в памяти или обёртка над строкой БД."""
 
-    def __init__(self, client_id: str, event_id: str) -> None:
+    def __init__(self, client_id: str, event_id: str, db_id: int | None = None) -> None:
         self.run_id = f"run_{uuid.uuid4().hex[:8]}"
+        self.db_id = db_id
         self.client_id = client_id
         self.event_id = event_id
         self.status = "queued"
@@ -69,24 +77,54 @@ _runs: dict[str, StoredRun] = {}
 _generated_insights: dict[tuple[str, str], Insight] = {}
 
 
+def make_llm(conn):
+    """Возвращает LLM-клиент согласно `LLM_PROVIDER`."""
+    if get_settings().llm_provider == "remote":
+        from app.ml.llm.client import LLMClient
+
+        return LLMClient(conn)
+    from app.ml.llm.fake import FakeLLM
+
+    return FakeLLM(conn)
+
+
 def create_run(client_id: str, event_id: str) -> StoredRun:
     """Создаёт запуск в статусе `queued`."""
+    if db_mode():
+        with db_session() as conn:
+            run_id = repo.create_run(conn, client_id, parse_id(event_id))
+        run = StoredRun(client_id, event_id, db_id=run_id)
+        run.run_id = str(run_id)
+        return run
     run = StoredRun(client_id, event_id)
     _runs[run.run_id] = run
     return run
 
 
+def _run_from_row(row: dict) -> StoredRun:
+    run = StoredRun(row["client_id"], str(row["doc_id"]), db_id=row["id"])
+    run.run_id = str(row["id"])
+    run.status = row["status"]
+    run.insight_id = str(row["insight_id"]) if row.get("insight_id") is not None else None
+    run.error = row["error"]
+    return run
+
+
 def get_run(run_id: str) -> StoredRun | None:
     """Возвращает запуск по идентификатору."""
+    if db_mode():
+        try:
+            db_id = parse_id(run_id)
+        except InvalidId:
+            return None
+        with db_session() as conn:
+            row = repo.get_run(conn, db_id)
+        return _run_from_row(row) if row is not None else None
     return _runs.get(run_id)
 
 
 def _source_for_event(event_id: str) -> str | None:
-    """Подбирает источник, соответствующий событию.
-
-    Сначала идёт точное совпадение по заголовку документа, затем — источник
-    банка по теме. Если ничего не подошло, берётся первый актуальный.
-    """
+    """Подбирает источник, соответствующий событию (режим фикстур)."""
     event = get_event(event_id)
     if event is None:
         return None
@@ -103,11 +141,31 @@ def _source_for_event(event_id: str) -> str | None:
     return sources[0].source_id if sources else None
 
 
-def complete_run(run: StoredRun) -> Insight:
-    """Имитирует работу агента: пишет шаги в трассу и собирает инсайт.
+def _complete_db_run(run: StoredRun) -> Insight:
+    from app.ml.agent.run import execute_run
 
-    Идемпотентно: повторный вызов возвращает тот же инсайт.
+    with db_session() as conn:
+        result = execute_run(conn, run.db_id, make_llm(conn))
+        row = repo.get_run(conn, run.db_id)
+        run.status = row["status"]
+        run.error = row["error"]
+        run.insight_id = str(row["insight_id"]) if row.get("insight_id") is not None else None
+        if result is None:
+            raise ValueError(run.error or "Не удалось построить интерпретацию")
+        insight = repo.get_insight(conn, run.client_id, parse_id(run.event_id))
+        if insight is None:
+            raise ValueError("Инсайт не сохранился в БД")
+        return Insight.model_validate(to_insight(insight))
+
+
+def complete_run(run: StoredRun) -> Insight:
+    """Выполняет запуск и возвращает готовый инсайт.
+
+    Идемпотентно: повторный вызов в режиме фикстур возвращает тот же инсайт.
     """
+    if run.db_id is not None:
+        return _complete_db_run(run)
+
     if run.insight_id is not None:
         existing = _generated_insights.get((run.client_id, run.event_id))
         if existing is not None:
@@ -225,17 +283,27 @@ def generated_insights() -> dict[tuple[str, str], Insight]:
     return dict(_generated_insights)
 
 
-def find_insight(client_id: str, event_id: str) -> Insight | None:
-    """Ищет инсайт: сначала среди созданных заглушкой, потом среди фикстур."""
-    generated = get_generated_insight(client_id, event_id)
-    if generated is not None:
-        return generated
-    return get_insight(client_id, event_id)
-
-
-def trace_steps(run: StoredRun) -> list[TraceStep]:
+def trace_steps(run: StoredRun) -> list[TraceStepOut]:
     """Шаги запуска в порядке выполнения."""
-    return list(run.steps)
+    if run.db_id is not None:
+        with db_session() as conn:
+            rows = repo.get_trace(conn, run.db_id)
+        return [TraceStepOut.model_validate(to_trace_step(row)) for row in rows]
+    return [
+        TraceStepOut(
+            step_no=step.step_no,
+            step_type=step.step_type,
+            tool_name=step.tool_name,
+            input=step.input,
+            output=step.output,
+            model=step.model,
+            tokens_in=step.tokens_in,
+            tokens_out=step.tokens_out,
+            latency_ms=step.latency_ms,
+            created_at=step.created_at,
+        )
+        for step in run.steps
+    ]
 
 
 def known_sources() -> list[SourceFragment]:
@@ -244,11 +312,12 @@ def known_sources() -> list[SourceFragment]:
 
 
 def usage_by_day() -> list[dict[str, object]]:
-    """Расход токенов по дням из записанных шагов.
+    """Расход токенов по дням: из БД или из шагов в памяти."""
+    if db_mode():
+        from app.db.trace import usage_by_day as db_usage
 
-    Считается по трассе запусков, а не по выдуманным числам. Когда появится
-    слой БД, эта же агрегация переедет в запрос к `trace_step`.
-    """
+        with db_session() as conn:
+            return db_usage(conn)
     days: dict[date, dict[str, object]] = {}
     for run in _runs.values():
         for step in run.steps:

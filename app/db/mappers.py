@@ -9,18 +9,81 @@ PRODUCT_LABELS = {"has_loan": "кредит", "has_leasing": "лизинг", "ha
                   "has_deposit": "депозит", "has_rko": "РКО", "has_payroll": "зарплатный проект",
                   "has_factoring": "факторинг"}
 
+PRODUCT_CODES = {
+    "has_loan": "loan",
+    "has_leasing": "leasing",
+    "has_guarantee": "guarantee",
+    "has_deposit": "deposit",
+    "has_rko": "rko",
+    "has_payroll": "payroll",
+    "has_factoring": "factoring",
+}
+
+TAG_CODES = {
+    "fuel_trade": "industry",
+    "construction": "industry",
+    "wholesale": "industry",
+    "real_estate": "industry",
+    "it": "industry",
+    "logistics": "industry",
+    "energy": "industry",
+    "debt_sensitive": "debt_sensitivity",
+    "fx_exposed": "currency_dependency",
+    "group_member": "group_position",
+    "large_scale": "scale",
+}
+
 
 def _bool(v) -> bool | None:
     return None if v is None else bool(v)
 
 
 def products_of(row: dict) -> list[str]:
-    return [label for key, label in PRODUCT_LABELS.items() if row.get(key) == 1]
+    return [code for key, code in PRODUCT_CODES.items() if row.get(key) == 1]
+
+
+def _tag_of(tag: dict) -> dict | None:
+    """Приводит тег ML-профиля к контракту `ClientTag`.
+
+    ML-слой называет теги по-своему (`debt_sensitive`, `fuel_trade`), а API
+    ждёт фиксированные коды. Уже готовый тег возвращается без изменений.
+    """
+    if "code" in tag:
+        return {
+            "code": tag["code"],
+            "label": tag.get("label", ""),
+            "evidence": list(tag.get("evidence") or []),
+        }
+    name = tag.get("name")
+    code = TAG_CODES.get(name)
+    if code is None:
+        return None
+    return {
+        "code": code,
+        "label": tag.get("label", ""),
+        "evidence": list(tag.get("evidence") or []),
+    }
 
 
 def countries_of(row: dict) -> list[str]:
     raw = row.get("fts_countries") or ""
     return [c.strip() for c in raw.split(",") if c.strip()]
+
+
+_CLIENT_TYPES = {
+    "client": "CLIENT",
+    "корпоративный": "CLIENT",
+    "prospect": "PROSPECT",
+    "потенциальный": "PROSPECT",
+    "close_client": "CLOSE_CLIENT",
+    "закрытый": "CLOSE_CLIENT",
+}
+
+
+def _client_type(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return _CLIENT_TYPES.get(value.strip().lower())
 
 
 def to_client_summary(row: dict) -> dict:
@@ -34,6 +97,9 @@ def to_client_summary(row: dict) -> dict:
         "revenue_band": row.get("revenue_band"),
         "employees_band": row.get("employees_band"),
         "age_band": row.get("age_band"),
+        "group_id": row.get("group_id"),
+        "group_size": row.get("group_size"),
+        "is_large": bool(row.get("is_large")),
         "is_demo": bool(row.get("is_demo")),
         "products": products_of(row),
     }
@@ -41,18 +107,16 @@ def to_client_summary(row: dict) -> dict:
 
 def to_client_profile(row: dict, tags: list[dict] | None = None) -> dict:
     out = to_client_summary(row)
+    normalized_tags = [t for t in (_tag_of(tag) for tag in (tags or [])) if t is not None]
     out.update({
         "revenue_rub": row.get("revenue_rub"),
         "ownership": row.get("ownership"),
         "business_stage": row.get("business_stage"),
-        "client_type": row.get("client_type"),
-        "group_id": row.get("group_id"),
-        "group_size": row.get("group_size"),
-        "is_large": bool(row.get("is_large")),
+        "client_type": _client_type(row.get("client_type")),
         "fts_countries": countries_of(row),
         "key_owner_mark": _bool(row.get("key_owner_mark")),
         "unknown_features": [k for k in FLAGS if row.get(k) is None],
-        "tags": list(tags or []),
+        "tags": normalized_tags,
     })
     for key in FLAGS:
         out[key] = _bool(row.get(key))

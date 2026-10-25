@@ -45,6 +45,25 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def verify_db(db_path: str | os.PathLike) -> None:
+    """Проверяет, что файл БД существует и схема приложения создана."""
+    path = Path(db_path)
+    if not path.is_file():
+        raise RuntimeError(
+            f"USE_DB=true, но файл БД {path} не найден. "
+            "Соберите её командой: python -m app.db.build --db ..."
+        )
+    conn = connect(path)
+    try:
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'company'"
+        ).fetchone()
+        if row is None:
+            raise RuntimeError(f"В БД {path} нет схемы приложения. Пересоберите её с --rebuild.")
+    finally:
+        conn.close()
+
+
 def get_db() -> Iterator[sqlite3.Connection]:
     conn = connect()
     try:

@@ -44,6 +44,9 @@ class Settings:
     admin_password: str
     daily_token_limit_tokens: int | None
     budget_rub: float | None
+    use_db: bool
+    db_path: str
+    llm_provider: str
 
     @property
     def is_production(self) -> bool:
@@ -147,8 +150,25 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
             problems.append(f"BUDGET_RUB={raw_budget!r} — ожидается число больше нуля")
             budget_rub = None
 
+    raw_use_db = read("USE_DB", "false")
+    use_db = False
+    if raw_use_db is not None:
+        try:
+            use_db = _parse_bool(raw_use_db)
+        except ValueError as exc:
+            problems.append(f"USE_DB — {exc}")
+
+    db_path = read("DB_PATH", "data/app.db") or "data/app.db"
+
+    llm_provider = (read("LLM_PROVIDER", "fake") or "fake").lower()
+    if llm_provider not in ("fake", "remote"):
+        problems.append(f"LLM_PROVIDER={llm_provider!r} — допустимо: fake, remote")
+        llm_provider = "fake"
+
     if environment == "production" and cors_allow_credentials and "*" in cors_origins:
         problems.append("в production нельзя одновременно разрешать CORS_ALLOW_CREDENTIALS и Origin '*'")
+    if environment == "production" and llm_provider == "fake":
+        problems.append("в production нельзя использовать LLM_PROVIDER=fake")
 
     if problems:
         listed = "\n".join(f"  - {problem}" for problem in problems)
@@ -169,6 +189,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         admin_password=admin_password,
         daily_token_limit_tokens=daily_token_limit_tokens,
         budget_rub=budget_rub,
+        use_db=use_db,
+        db_path=db_path,
+        llm_provider=llm_provider,
     )
 
 

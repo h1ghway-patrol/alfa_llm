@@ -1,7 +1,7 @@
 """Зависимости FastAPI: текущий пользователь и проверка роли.
 
-Реализация — заглушка на фиксированных учётках из окружения и сессиях в
-памяти (задача B-4 заменит её на полноценные сессии с хэшами паролей в БД).
+В режиме фикстур пользователи и сессии живут в памяти. При `USE_DB=true`
+учётки, хэши паролей и сессии читаются из SQLite.
 """
 
 from __future__ import annotations
@@ -13,7 +13,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import get_settings
+from app.db import repositories as repo
+from app.db.passwords import verify_password
 from app.schemas.auth import Role, UserOut
+from app.store import db_mode, db_session
 
 TOKEN_TTL = timedelta(hours=8)
 
@@ -36,20 +39,40 @@ def _stub_passwords() -> dict[str, str]:
 
 
 def issue_token(username: str) -> tuple[str, datetime]:
-    """Выдаёт токен фикстурному пользователю. Возвращает токен и срок его действия."""
+    """Выдаёт токен пользователю. Возвращает токен и срок его действия."""
+    expires_at = datetime.now(timezone.utc) + TOKEN_TTL
+    if db_mode():
+        with db_session() as conn:
+            user = repo.get_user_by_username(conn, username)
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail={"code": "unauthorized", "message": "Неверный логин или пароль"},
+                )
+            token = repo.create_session(conn, user["id"], int(TOKEN_TTL.total_seconds()))
+        return token, expires_at
     if username not in STUB_USERS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "unauthorized", "message": "Неверный логин или пароль"},
         )
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + TOKEN_TTL
     _sessions[token] = (username, expires_at)
     return token, expires_at
 
 
 def verify_credentials(username: str, password: str) -> UserOut:
-    """Проверяет логин и пароль фикстурного пользователя."""
+    """Проверяет логин и пароль пользователя."""
+    if db_mode():
+        with db_session() as conn:
+            user = repo.get_user_by_username(conn, username)
+        if user is None or not verify_password(password, user["password_hash"], user["salt"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "unauthorized", "message": "Неверный логин или пароль"},
+            )
+        return UserOut(id=user["id"], username=user["username"], role=user["role"])
+
     entry = STUB_USERS.get(username)
     expected = _stub_passwords().get(username)
     if entry is None or expected is None:
@@ -80,6 +103,15 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     token = credentials.credentials
+    if db_mode():
+        with db_session() as conn:
+            user = repo.get_session_user(conn, token)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "unauthorized", "message": "Токен недействителен или истёк"},
+            )
+        return UserOut(id=user["id"], username=user["username"], role=user["role"])
     session = _sessions.get(token)
     if session is None:
         raise HTTPException(

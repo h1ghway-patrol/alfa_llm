@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: alfa-llm:local
+    container_name: alfa-llm
+    init: true
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      APP_NAME: alfa_llm
+      APP_ENV: local
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      USE_DB: "true"
+      DB_PATH: /app/data/app.db
+      SEED_DIR: /seed
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:-viewer-demo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-demo}
+      CORS_ORIGINS: "http://localhost:${APP_PORT:-8000},http://127.0.0.1:${APP_PORT:-8000}"
+      REBUILD_DB: ${REBUILD_DB:-false}
+      LOAD_ALL_CLIENTS: ${LOAD_ALL_CLIENTS:-false}
+    volumes:
+      - alfa_data:/app/data
+      - ./data:/seed:ro
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+volumes:
+  alfa_data:

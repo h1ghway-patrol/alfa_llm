@@ -58,7 +58,7 @@ class ClientMappersTests(unittest.TestCase):
         s = mappers.to_client_summary(self.rows()["U_1465"])
         self.assertEqual(s["client_id"], "U_1465")
         self.assertNotIn("id", s)
-        self.assertEqual(s["products"], ["кредит", "лизинг", "РКО", "зарплатный проект"])
+        self.assertEqual(s["products"], ["loan", "leasing", "rko", "payroll"])
         self.assertEqual((s["employees_band"], s["age_band"], s["is_demo"]), ("1000+", "10+", True))
         self.assertEqual(s["industry"], s["okved_name"])
         json.dumps(s)
@@ -69,12 +69,18 @@ class ClientMappersTests(unittest.TestCase):
         self.assertIn("has_loan", p["unknown_features"])
         self.assertEqual(p["products"], [])
         self.assertEqual(p["fts_countries"], [])
-        full = mappers.to_client_profile(self.rows()["U_1465"], tags=[{"name": "fuel_trade"}])
+        full = mappers.to_client_profile(
+            self.rows()["U_1465"],
+            tags=[{"name": "fuel_trade", "label": "Торговля топливом", "evidence": ["ОКВЭД 46.71"]}],
+        )
         self.assertIs(full["has_loan"], True)
         self.assertIs(full["has_deposit"], False)
         self.assertIs(full["key_owner_mark"], False)
         self.assertEqual(full["fts_countries"], ["Китай", "Турция"])
-        self.assertEqual(full["tags"], [{"name": "fuel_trade"}])
+        self.assertEqual(
+            full["tags"],
+            [{"code": "industry", "label": "Торговля топливом", "evidence": ["ОКВЭД 46.71"]}],
+        )
         self.assertEqual(full["unknown_features"], [])
         json.dumps(full)
 

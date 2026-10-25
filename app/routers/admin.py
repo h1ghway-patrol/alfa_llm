@@ -8,12 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.config import get_settings
 from app.dependencies import require_role
-from app.runs import get_run, trace_steps, usage_by_day
+from app.runs import get_run, make_llm, trace_steps, usage_by_day
+from app.store import db_mode, db_session
 from app.schemas.admin import (
     NewsCreate,
     NewsCreateResponse,
     TraceResponse,
-    TraceStep,
     UsageDay,
     UsageResponse,
 )
@@ -45,6 +45,31 @@ def create_news(
     Текст новости — недоверенный вход: он проверяется по длине, а содержимое
     считается данными, а не инструкциями для модели.
     """
+    if db_mode():
+        from app.ml.pipeline import add_news
+
+        with db_session() as conn:
+            result = add_news(
+                conn,
+                make_llm(conn),
+                title=payload.title,
+                text=payload.text,
+                published_at=payload.published_at.isoformat(),
+                source_name=payload.source_name,
+                url=payload.url,
+            )
+        created = bool(result["created"])
+        return NewsCreateResponse(
+            event_id=str(result["event_id"]),
+            title=payload.title,
+            status="done",
+            message=(
+                "Новость добавлена, размечена и попала в ленты релевантных клиентов"
+                if created
+                else "Такая новость уже есть в базе, повторно не добавлена"
+            ),
+        )
+
     event_id = f"doc_{uuid.uuid4().hex[:10]}"
     _added_news[event_id] = payload
     return NewsCreateResponse(
@@ -67,12 +92,11 @@ def create_news(
 def usage(user: UserOut = Depends(require_role("admin"))) -> UsageResponse:
     """Расход токенов по дням из трассы запусков.
 
-    Пока считает по шагам в памяти. Когда слоя БД хватит, источником станет
-    `usage_by_day` из `app/db/trace.py`, а форма ответа не изменится.
+    Источник — шаги в памяти или таблицы трассы в БД.
     """
     days = [
         UsageDay(
-            date=entry["date"],
+            date=entry.get("date") or entry["day"],
             tokens_in=int(entry["tokens_in"]),
             tokens_out=int(entry["tokens_out"]),
             requests=int(entry["requests"]),
@@ -110,21 +134,6 @@ def run_trace(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "not_found", "message": f"Запуск {run_id} не найден"},
         )
-    steps = [
-        TraceStep(
-            step_no=step.step_no,
-            step_type=step.step_type,
-            tool_name=step.tool_name,
-            input=step.input,
-            output=step.output,
-            model=step.model,
-            tokens_in=step.tokens_in,
-            tokens_out=step.tokens_out,
-            latency_ms=step.latency_ms,
-            created_at=step.created_at,
-        )
-        for step in trace_steps(run)
-    ]
-    return TraceResponse(run_id=run.run_id, steps=steps)
+    return TraceResponse(run_id=run.run_id, steps=trace_steps(run))
 
 

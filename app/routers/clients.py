@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.dependencies import get_current_user
-from app.fixtures import get_client, get_client_summaries, get_feed
+from app.store import get_client, get_feed, list_client_summaries
 from app.schemas.auth import UserOut
 from app.schemas.client import ClientProfile, ClientSummary
 from app.schemas.event import FeedResponse
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 )
 def list_clients(user: UserOut = Depends(get_current_user)) -> list[ClientSummary]:
     """Возвращает демонстрационных клиентов с отраслью, регионом и продуктами."""
-    return get_client_summaries()
+    return list_client_summaries()
 
 
 @router.get(

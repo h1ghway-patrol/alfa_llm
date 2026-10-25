@@ -9,11 +9,12 @@
 <body>
 <div id="app"></div>
 <script>
-const CONFIG={useMock: false,baseUrl: window.APP_API_URL||'/api',pollMs:1500,paths:{
-clients:'/clients',feed:id=>'/clients/'+id+'/events',insight:(c,e)=>'/clients/'+c+'/events/'+e+'/insight',
+const CONFIG={useMock: false,baseUrl: window.APP_API_URL||'',pollMs:1500,paths:{
+clients:'/clients',feed:id=>'/clients/'+id+'/feed',profile:id=>'/clients/'+id+'/profile',insight:(c,e)=>'/clients/'+c+'/events/'+e+'/insight',
 run:id=>'/runs/'+id,source:id=>'/sources/'+id,feedback:'/feedback'}};
 
 const KINDS={fact:['Факт','Из новости'],bank:['Банк','Позиция банка'],ai:['AI','Вывод модели'],client:['Данные клиента','Из профиля']};
+const PRODUCTS={loan:'кредит',leasing:'лизинг',guarantee:'гарантии',deposit:'депозит',rko:'РКО',payroll:'зарплатный проект',factoring:'факторинг'};
 const FRESH={actual:'актуален',outdated:'устарел',unknown:'дата не определена'};
 
 const MOCK={
@@ -51,7 +52,7 @@ const store={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},
 async function api(path,opts={}){
 const t=store.get('token');
 const res=await fetch(CONFIG.baseUrl+path,{...opts,headers:{'Content-Type':'application/json',...(t?{Authorization:'Bearer '+t}:{})}});
-if(res.status===401)throw new Error('Нужно войти заново');
+if(res.status===401){const e=new Error('Нужно войти заново');e.status=401;throw e;}
 if(res.status===404)throw new Error('Не найдено');
 if(res.status===429)throw new Error('Слишком много запросов, повторите позже');
 if(res.status===503)throw new Error('Сервис временно недоступен');
@@ -61,9 +62,12 @@ return res.json();}
 const Data={
 async clients(){if(!CONFIG.useMock)return api(CONFIG.paths.clients);await delay(150);return MOCK.clients;},
 async feed(id){
-if(!CONFIG.useMock)return api(CONFIG.paths.feed(id));
+if(!CONFIG.useMock){const res=await api(CONFIG.paths.feed(id));return res.items;}
 await delay(250);
 return(MOCK.feeds[id]||[]).map(([eid,score,reasons])=>({event_id:eid,...MOCK.events[eid],relevance_score:score,relevance_reasons:reasons,has_insight:false}));},
+async profile(id){
+if(!CONFIG.useMock)return api(CONFIG.paths.profile(id));
+await delay(150);return null;},
 async startRun(cid,eid){
 if(!CONFIG.useMock)return api(CONFIG.paths.insight(cid,eid),{method:'POST'});
 await delay(200);return{run_id:'r-'+cid+'-'+eid,status:'queued',polls:0};},
@@ -90,14 +94,16 @@ return el;};
 
 const $app=document.getElementById('app');
 const fromUrl=new URLSearchParams(location.search).get('client');
-const state={clients:[],clientId:fromUrl||store.get('clientId'),feed:null,feedError:null,topic:'',insight:null,runText:'',running:false,source:null,poll:0,vote:null};
+const state={clients:[],clientId:fromUrl||store.get('clientId'),feed:null,feedError:null,profile:null,profileError:null,topic:'',insight:null,runText:'',running:false,source:null,poll:0,vote:null};
 const client=()=>state.clients.find(c=>c.client_id===state.clientId);
 const route=()=>{const m=(location.hash||'#/').match(/^#\/(feed|event|widget)?\/?(.*)$/);return{name:m&&m[1]||'feed',id:m&&m[2]||''};};
 const count=()=>state.feed?state.feed.length:0;
 
 async function loadFeed(){
-state.feed=null;state.feedError=null;render();
-try{state.feed=await Data.feed(state.clientId);}catch(e){state.feedError=e.message;}
+state.feed=null;state.feedError=null;state.profile=null;state.profileError=null;render();
+const[feedRes,profRes]=await Promise.allSettled([Data.feed(state.clientId),Data.profile(state.clientId)]);
+if(feedRes.status==='fulfilled')state.feed=feedRes.value;else state.feedError=feedRes.reason.message;
+if(profRes.status==='fulfilled')state.profile=profRes.value;else state.profileError=profRes.reason.message;
 render();}
 
 function shell(content){
@@ -105,7 +111,7 @@ return h('div',{class:'page'},
 h('header',{class:'bar'},
 h('div',null,h('h1',null,'Новости для бизнеса'),h('p',{class:'meta'},'Интерпретация новостей для менеджера · демо-данные')),
 h('label',null,'Клиент',h('select',{'aria-label':'Выбор клиента',onchange:e=>pickClient(e.target.value)},
-state.clients.map(c=>h('option',{value:c.client_id,selected:c.client_id===state.clientId},c.client_id+' · '+c.industry)))),
+state.clients.map(c=>h('option',{value:c.client_id,selected:c.client_id===state.clientId},c.client_id+' · '+(c.okved_name||c.industry||''))))),
 h('nav',{'aria-label':'Сервис'},h('a',{class:'navlink',href:'#/feed','aria-current':route().name==='feed'?'page':null},
 'Лента событий',count()?h('span',{class:'badge'},'новое '+count()):null))),
 h('main',null,content));}
@@ -114,22 +120,40 @@ function widgetView(){
 const c=client();
 return h('section',{class:'widget','aria-labelledby':'w'},
 h('h2',{id:'w'},'Новости для вашего бизнеса'),
-h('p',null,c?'Клиент «'+c.industry+'»: значимых событий — '+count()+'.':'Выберите клиента.'),
+h('p',null,c?'Клиент «'+(c.okved_name||c.industry)+'»: значимых событий — '+count()+'.':'Выберите клиента.'),
 h('a',{class:'btn',href:location.pathname+'?client='+encodeURIComponent(state.clientId||'')+'#/feed',target:'_blank',rel:'noopener noreferrer'},'Открыть ленту'));}
 
+function profileView(){
+const p=state.profile;if(!p)return state.profileError?h('p',{class:'meta'},'Профиль недоступен: '+state.profileError):null;
+const c=p.connections;
+const money=v=>v>=1e9?(v/1e9).toFixed(1).replace('.',',')+' млрд ₽':v>=1e6?Math.round(v/1e6)+' млн ₽':Math.round(v).toLocaleString('ru-RU')+' ₽';
+const link=x=>h('li',{class:'link'},
+h('span',{class:'who'},x.counterparty_id),
+h('span',{class:'meta'},[x.city,x.region].filter(Boolean).join(' · ')||'география неизвестна'),
+h('span',{class:'sum'},money(x.amount_rub),h('span',{class:'meta'},' · '+x.operations+' оп.')));
+const list=(title,items)=>h('div',null,h('h4',null,title),items.length?h('ul',{class:'links'},items.map(link)):h('p',{class:'meta'},'Нет данных'));
+const tags=(p.tags||[]).map(t=>h('span',{class:'chip cl'},t.label));
+return h('section',{class:'card profile block'},
+h('h2',null,'Профиль клиента'),
+h('p',{class:'meta'},[p.okved_name,p.city,p.region,p.revenue_band].filter(Boolean).join(' · ')),
+h('div',{class:'chips'},(p.products||[]).map(x=>h('span',{class:'chip'},PRODUCTS[x]||x)),tags),
+c?h('div',{class:'cols'},list('Куда платит',c.top_outgoing),list('Кто платит клиенту',c.top_incoming)):h('p',{class:'meta'},'Связи и география не загружены.'),
+c&&c.geography&&(c.geography.regions.length||c.geography.cities.length)?h('div',{class:'geo'},h('b',null,'География связей'),h('div',{class:'chips'},c.geography.regions.map(r=>h('span',{class:'chip'},r))),h('p',{class:'meta'},'Города: '+c.geography.cities.join(', '))):null,
+h('p',{class:'meta'},p.payments?'Партнёров: входящих '+p.payments.incoming_partners+', исходящих '+p.payments.outgoing_partners:'Платёжный граф не загружен.'));}
+
 function feedView(){
-if(state.feedError)return h('div',{class:'err',role:'alert'},state.feedError+' ',h('button',{class:'btn ghost',onclick:loadFeed},'Повторить'));
+if(state.feedError)return h('div',null,profileView(),h('div',{class:'err',role:'alert'},state.feedError+' ',h('button',{class:'btn ghost',onclick:loadFeed},'Повторить')));
 if(!state.feed)return h('p',{role:'status'},'Загружаем ленту…');
 const topics=[...new Set(state.feed.flatMap(e=>e.topics))];
 const items=state.feed.filter(e=>!state.topic||e.topics.includes(state.topic));
-return[h('label',{class:'meta'},'Тема ',h('select',{'aria-label':'Фильтр по теме',onchange:e=>{state.topic=e.target.value;render();}},
+return[profileView(),h('label',{class:'meta'},'Тема ',h('select',{'aria-label':'Фильтр по теме',onchange:e=>{state.topic=e.target.value;render();}},
 h('option',{value:''},'все темы'),topics.map(t=>h('option',{value:t,selected:t===state.topic},t)))),
 items.length?h('div',{class:'feed'},items.map(e=>h('article',{class:'card'},
 h('a',{class:'title-link',href:'#/event/'+e.event_id},e.title),
 h('div',{class:'meta'},e.published_at+' · '+e.source_name+' · релевантность '+Math.round(e.relevance_score*100)+'%'),
 h('div',{class:'chips'},e.topics.map(t=>h('span',{class:'chip'},t))),
 h('details',{open:true},h('summary',null,'Почему в вашей ленте'),h('ul',null,e.relevance_reasons.map(x=>h('li',null,x))))))):
-h('p',{class:'empty'},'Для этого клиента значимых новостей нет.')];}
+h('p',{class:'empty'},'Для этого клиента значимых новостей нет.')].filter(Boolean);}
 
 function claims(list,order){
 return list.map(c=>{
@@ -192,6 +216,7 @@ const token=++state.poll,cid=state.clientId;
 state.running=true;state.runText='Запускаем анализ…';render();
 try{
 const run=await Data.startRun(cid,ev.event_id);
+if(!run.run_id){state.insight=run;state.running=false;render();return;}
 while(true){
 await delay(CONFIG.pollMs);
 if(token!==state.poll)return;
@@ -209,18 +234,39 @@ render();}
 
 async function vote(v){
 state.vote=v;
-try{await Data.feedback({client_id:state.clientId,event_id:route().id,rating:v});}catch(e){state.vote=null;}
+try{await Data.feedback({insight_id:state.insight.insight_id,rating:v});}catch(e){state.vote=null;}
 render();}
 
 window.addEventListener('hashchange',()=>{state.poll++;state.insight=null;state.runText='';state.running=false;state.vote=null;state.source=null;render();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.source){state.source=null;render();}});
 
-(async function init(){
+function loginView(message){
+return h('form',{class:'card login',onsubmit:async e=>{
+e.preventDefault();
+const f=e.target,note=f.querySelector('.err');
+try{
+const res=await api('/auth/login',{method:'POST',body:JSON.stringify({username:f.username.value,password:f.password.value})});
+store.set('token',res.access_token);
+await init();
+}catch(err){if(note)note.textContent=err.message;}}},
+h('h1',null,'Новости для бизнеса'),
+h('p',{class:'meta'},'Войдите, чтобы открыть ленту клиентов'),
+h('label',null,'Логин',h('input',{name:'username',value:'viewer',autocomplete:'username',required:true})),
+h('label',null,'Пароль',h('input',{name:'password',type:'password',value:'viewer-demo',autocomplete:'current-password',required:true})),
+h('button',{class:'btn',type:'submit'},'Войти'),
+h('p',{class:'err',role:'alert'},message||''));}
+
+async function init(){
+if(!store.get('token')){$app.replaceChildren(loginView());return;}
 try{
 state.clients=await Data.clients();
 if(!state.clients.find(c=>c.client_id===state.clientId))state.clientId=state.clients[0].client_id;
-}catch(e){$app.replaceChildren(h('p',{class:'err',role:'alert'},'Не удалось загрузить клиентов: '+e.message));return;}
-await loadFeed();})();
+}catch(e){
+if(e.status===401){store.set('token','');$app.replaceChildren(loginView('Сессия истекла, войдите снова'));return;}
+$app.replaceChildren(h('p',{class:'err',role:'alert'},'Не удалось загрузить клиентов: '+e.message));return;}
+await loadFeed();}
+
+init();
 </script>
 </body>
 </html>

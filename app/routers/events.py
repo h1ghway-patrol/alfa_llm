@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_current_user
-from app.fixtures import get_event, get_source
+from app.store import get_event, get_source
 from app.schemas.auth import UserOut
 from app.schemas.event import Event
 from app.schemas.source import SourceFragment

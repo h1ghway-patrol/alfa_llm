@@ -98,6 +98,12 @@ class GraphQueriesTests(unittest.TestCase):
         self.assertEqual(repo.top_counterparties(self.conn, "x'; DROP TABLE payment; --"), [])
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM payment").fetchone()[0], 2)
 
+    def test_client_counterparty_geo(self):
+        geo = repo.client_counterparty_geo(self.conn, "U_1465")
+        self.assertEqual(geo["cities"], ["Казань", "Москва"])
+        self.assertEqual(geo["regions"], ["Московская область", "Татарстан"])
+        self.assertEqual(repo.client_counterparty_geo(self.conn, "U_57706"), {"cities": [], "regions": []})
+
     def test_counterparty_geo_lookup(self):
         geo = repo.get_counterparty_geo(self.conn, ["F_1", "F_2", "F_404"])
         self.assertEqual(geo["F_1"]["client_id"], "U_1465")

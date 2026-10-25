@@ -13,6 +13,7 @@ os.environ.setdefault("APP_ENV", "local")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("VIEWER_PASSWORD", "viewer-demo")
 os.environ.setdefault("ADMIN_PASSWORD", "admin-demo")
+os.environ.setdefault("USE_DB", "false")
 
 
 @pytest.fixture(scope="session")

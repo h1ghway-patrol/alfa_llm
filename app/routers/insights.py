@@ -8,8 +8,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from app.dependencies import get_current_user
-from app.fixtures import get_client, get_event
-from app.runs import complete_run, create_run, find_insight, get_run
+from app.runs import complete_run, create_run, get_run
+from app.store import find_insight, find_insight_by_id, get_client, get_event, save_feedback
 from app.schemas.auth import UserOut
 from app.schemas.insight import (
     AskRequest,
@@ -196,13 +196,14 @@ def feedback(
     payload: FeedbackRequest,
     user: UserOut = Depends(get_current_user),
 ) -> FeedbackResponse:
-    """Принимает оценку интерпретации. Пока только пишет её в лог."""
+    """Принимает и сохраняет оценку интерпретации (в БД при `USE_DB`)."""
     insight = find_insight_by_id(payload.insight_id)
     if insight is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "not_found", "message": f"Инсайт {payload.insight_id} не найден"},
         )
+    save_feedback(payload.insight_id, user.id, payload.rating, payload.comment)
     logger.info(
         "feedback_received",
         extra={
@@ -212,17 +213,3 @@ def feedback(
         },
     )
     return FeedbackResponse(status="accepted", insight_id=payload.insight_id)
-
-
-def find_insight_by_id(insight_id: str) -> Insight | None:
-    """Ищет инсайт по его идентификатору: и в фикстурах, и среди созданных заглушкой."""
-    from app.fixtures import get_insights
-    from app.runs import generated_insights
-
-    for insight in get_insights():
-        if insight.insight_id == insight_id:
-            return insight
-    for insight in generated_insights().values():
-        if insight.insight_id == insight_id:
-            return insight
-    return None

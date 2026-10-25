@@ -15,9 +15,10 @@ env/
 /app/ml/config/llm.yaml
 
 # Application data
-
+data/*
 !data/README.md
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
 

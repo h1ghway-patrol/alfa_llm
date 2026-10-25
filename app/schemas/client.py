@@ -106,6 +106,45 @@ class ClientPayments(BaseModel):
     outgoing_partners: int = Field(ge=0, description="Сколько компаний получает оплату от клиента.")
 
 
+class CounterpartyLink(BaseModel):
+    """Крупнейший контрагент клиента в графе платежей."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "counterparty_id": "F_2",
+                    "amount_rub": 750000000.0,
+                    "operations": 12,
+                    "city": "Казань",
+                    "region": "Татарстан",
+                }
+            ]
+        }
+    )
+
+    counterparty_id: Id = Field(description="Идентификатор контрагента в выгрузке.")
+    amount_rub: float = Field(ge=0, description="Суммарный оборот с контрагентом, ₽.")
+    operations: int = Field(ge=0, description="Количество платежей с контрагентом.")
+    city: str | None = Field(default=None, description="Город контрагента, если известен.")
+    region: str | None = Field(default=None, description="Регион контрагента, если известен.")
+
+
+class ClientGeography(BaseModel):
+    """География контрагентов клиента."""
+
+    cities: list[str] = Field(description="Города контрагентов без повторов.")
+    regions: list[str] = Field(description="Регионы контрагентов без повторов.")
+
+
+class ClientConnections(BaseModel):
+    """Связи клиента: крупнейшие входящие и исходящие платежи плюс география."""
+
+    top_outgoing: list[CounterpartyLink] = Field(description="Крупнейшие получатели платежей клиента.")
+    top_incoming: list[CounterpartyLink] = Field(description="Крупнейшие плательщики клиенту.")
+    geography: ClientGeography = Field(description="География контрагентов из выгрузки.")
+
+
 class ClientProfile(BaseModel):
     """Полный профиль клиента: `GET /clients/{client_id}/profile`."""
 
@@ -131,6 +170,27 @@ class ClientProfile(BaseModel):
                     "is_large": True,
                     "is_demo": True,
                     "payments": {"incoming_partners": 1230, "outgoing_partners": 210},
+                    "connections": {
+                        "top_outgoing": [
+                            {
+                                "counterparty_id": "F_2",
+                                "amount_rub": 750000000.0,
+                                "operations": 12,
+                                "city": "Казань",
+                                "region": "Татарстан",
+                            }
+                        ],
+                        "top_incoming": [
+                            {
+                                "counterparty_id": "F_1",
+                                "amount_rub": 1000000000.0,
+                                "operations": 7,
+                                "city": "Москва",
+                                "region": "Московская область",
+                            }
+                        ],
+                        "geography": {"cities": ["Казань", "Москва"], "regions": ["Московская область", "Татарстан"]},
+                    },
                     "tags": [
                         {
                             "code": "debt_sensitivity",
@@ -170,5 +230,9 @@ class ClientProfile(BaseModel):
     payments: ClientPayments | None = Field(
         default=None,
         description="Граф платежей. Может отсутствовать, если платежи для клиента не считались.",
+    )
+    connections: ClientConnections | None = Field(
+        default=None,
+        description="Крупнейшие контрагенты и география связей. Может отсутствовать в режиме фикстур.",
     )
     tags: list[ClientTag] = Field(description="Бизнес-теги профиля с признаками, которые их породили.")
