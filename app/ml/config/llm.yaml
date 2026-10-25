@@ -1,0 +1,13 @@
+base_url: "https://CHANGE-ME.example/v1"
+api_key_env: LLM_API_KEY
+timeout_s: 60
+retries: 3
+backoff_s: 1.5
+daily_token_limit: null
+budget_rub: 500
+price_rub_per_1k: {input: null, output: null}
+roles:
+  simple:    {model: "gemma",    max_tokens: 800,  temperature: 0.0}
+  universal: {model: "qwen",     max_tokens: 800,  temperature: 0.0}
+  complex:   {model: "glm",      max_tokens: 2500, temperature: 0.2}
+  verify:    {model: "deepseek", max_tokens: 1000, temperature: 0.0}
