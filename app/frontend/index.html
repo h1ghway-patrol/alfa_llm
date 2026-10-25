@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Новости для бизнеса</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app"></div>
+<script>
+const CONFIG={useMock:true,baseUrl:window.APP_API_URL||'/api',pollMs:1500,paths:{
+clients:'/clients',feed:id=>'/clients/'+id+'/events',insight:(c,e)=>'/clients/'+c+'/events/'+e+'/insight',
+run:id=>'/runs/'+id,source:id=>'/sources/'+id,feedback:'/feedback'}};
+
+const KINDS={fact:['Факт','Из новости'],bank:['Банк','Позиция банка'],ai:['AI','Вывод модели'],client:['Данные клиента','Из профиля']};
+const FRESH={actual:'актуален',outdated:'устарел',unknown:'дата не определена'};
+
+const MOCK={
+clients:[
+{client_id:'U_1465',industry:'Торговля топливом',region:'Москва',revenue_band:'25–60 млрд',products:['кредит','лизинг','РКО'],tags:['Долговая нагрузка','ВЭД: Китай, Турция']},
+{client_id:'U_51606',industry:'Строительство зданий',region:'Татарстан',revenue_band:'25–60 млрд',products:['кредит','гарантии'],tags:['Долговая нагрузка']},
+{client_id:'U_57706',industry:'Разработка ПО',region:'Санкт-Петербург',revenue_band:'15–25 млрд',products:['депозит','РКО'],tags:['Без долговых продуктов']}],
+events:{
+'1':{title:'ЦБ снизил ключевую ставку до 14,0%',published_at:'2026-09-12',source_name:'Интерфакс',topics:['ключевая ставка']},
+'2':{title:'Цены на бензин выросли на 3,1% за неделю',published_at:'2026-09-10',source_name:'РБК',topics:['нефть и топливо','инфляция']},
+'3':{title:'Курс юаня обновил максимум',published_at:'2026-09-11',source_name:'Ведомости',topics:['курс и валюта']}},
+feeds:{
+U_1465:[['1',.84,['Новость о ставке, а у клиента есть кредит и лизинг','Свежая новость (41 дн. назад)']],['3',.71,['Курсовая новость, а клиент ведёт ВЭД (Китай, Турция)']],['2',.66,['Новость о топливе, а клиент торгует топливом']]],
+U_51606:[['1',.74,['Новость о ставке, а у клиента есть кредит и гарантии']],['2',.52,['Инфляция влияет на ставки, а у клиента есть долг']]],
+U_57706:[]},
+sources:{
+'11':{source_id:'11',doc_title:'ЦБ снизил ключевую ставку до 14,0%',doc_kind:'news',doc_date:'2026-09-12',section_path:null,text:'Банк России снизил ключевую ставку на 100 б.п. до 14,0% годовых. Решение принято на заседании совета директоров.',url:'https://example.com/rate-cut',freshness:'actual'},
+'21':{source_id:'21',doc_title:'Макро 1П26: ставка и инфляция',doc_kind:'bank',doc_date:'2026-06-01',section_path:'Ключевая ставка',text:'Ключевая ставка Банка России снижена до 14,0%. Банк ожидает дальнейшее постепенное снижение ставки.',url:null,freshness:'actual'},
+'22':{source_id:'22',doc_title:'Рынок стали 2021',doc_kind:'bank',doc_date:'2021-03-10',section_path:'Обзор',text:'Рынок стали растёт, ставка по кредитам для отрасли 4,25%.',url:null,freshness:'outdated'}}};
+
+function buildInsight(c,ev){
+const cl=(t,k,ids=[],f=[])=>({text:t,kind:k,source_ids:ids,client_features:f});
+return{
+what_happened:[cl(ev.title+'.','fact',['11'])],
+why_it_matters:[cl('Отрасль: '+c.industry.toLowerCase()+'. Продукты банка: '+(c.products.join(', ')||'нет')+'.','client',[],c.tags)],
+consequences:{risks:[cl('Изменится стоимость обслуживания долга и условия рефинансирования.','ai')],opportunities:[cl('Возможен пересмотр планов финансирования под новую ставку.','ai')]},
+actions:[cl('Обсудить с клиентом рефинансирование по новой ставке.','ai')],
+bank_view:[cl('Аналитика банка ожидает дальнейшее постепенное снижение ставки.','bank',['21']),cl('Для сравнения: в 2021 году ставка по кредитам отрасли составляла 4,25%.','bank',['22'])],
+basis:[cl('Новостной материал.','fact',['11']),cl('Обзор банка «Макро 1П26».','bank',['21'])],
+data_quality_notes:['Использован устаревший материал банка: «Рынок стали 2021» (2021-03-10).']};}
+
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch(e){}}};
+
+async function api(path,opts={}){
+const t=store.get('token');
+const res=await fetch(CONFIG.baseUrl+path,{...opts,headers:{'Content-Type':'application/json',...(t?{Authorization:'Bearer '+t}:{})}});
+if(res.status===401)throw new Error('Нужно войти заново');
+if(res.status===404)throw new Error('Не найдено');
+if(res.status===429)throw new Error('Слишком много запросов, повторите позже');
+if(res.status===503)throw new Error('Сервис временно недоступен');
+if(!res.ok)throw new Error('Ошибка сервера: '+res.status);
+return res.json();}
+
+const Data={
+async clients(){if(!CONFIG.useMock)return api(CONFIG.paths.clients);await delay(150);return MOCK.clients;},
+async feed(id){
+if(!CONFIG.useMock)return api(CONFIG.paths.feed(id));
+await delay(250);
+return(MOCK.feeds[id]||[]).map(([eid,score,reasons])=>({event_id:eid,...MOCK.events[eid],relevance_score:score,relevance_reasons:reasons,has_insight:false}));},
+async startRun(cid,eid){
+if(!CONFIG.useMock)return api(CONFIG.paths.insight(cid,eid),{method:'POST'});
+await delay(200);return{run_id:'r-'+cid+'-'+eid,status:'queued',polls:0};},
+async runStatus(run){
+if(!CONFIG.useMock)return api(CONFIG.paths.run(run.run_id));
+await delay(200);run.polls++;
+return{status:run.polls<3?'running':'done'};},
+async insight(cid,eid){
+if(!CONFIG.useMock)return api(CONFIG.paths.insight(cid,eid));
+const c=MOCK.clients.find(x=>x.client_id===cid);return buildInsight(c,MOCK.events[eid]);},
+async source(id){if(!CONFIG.useMock)return api(CONFIG.paths.source(id));await delay(100);
+if(!MOCK.sources[id])throw new Error('Не найдено');return MOCK.sources[id];},
+async feedback(body){if(!CONFIG.useMock)return api(CONFIG.paths.feedback,{method:'POST',body:JSON.stringify(body)});await delay(100);return{ok:true};}};
+
+const h=(tag,props,...kids)=>{
+const el=document.createElement(tag);
+for(const[k,v]of Object.entries(props||{})){
+if(k==='class')el.className=v;
+else if(k.startsWith('on'))el.addEventListener(k.slice(2),v);
+else if(v===true)el.setAttribute(k,'');
+else if(v!==false&&v!=null)el.setAttribute(k,v);}
+for(const kid of kids.flat()){if(kid==null||kid===false)continue;el.append(typeof kid==='object'?kid:String(kid));}
+return el;};
+
+const $app=document.getElementById('app');
+const fromUrl=new URLSearchParams(location.search).get('client');
+const state={clients:[],clientId:fromUrl||store.get('clientId'),feed:null,feedError:null,topic:'',insight:null,runText:'',running:false,source:null,poll:0,vote:null};
+const client=()=>state.clients.find(c=>c.client_id===state.clientId);
+const route=()=>{const m=(location.hash||'#/').match(/^#\/(feed|event|widget)?\/?(.*)$/);return{name:m&&m[1]||'feed',id:m&&m[2]||''};};
+const count=()=>state.feed?state.feed.length:0;
+
+async function loadFeed(){
+state.feed=null;state.feedError=null;render();
+try{state.feed=await Data.feed(state.clientId);}catch(e){state.feedError=e.message;}
+render();}
+
+function shell(content){
+return h('div',{class:'page'},
+h('header',{class:'bar'},
+h('div',null,h('h1',null,'Новости для бизнеса'),h('p',{class:'meta'},'Интерпретация новостей для менеджера · демо-данные')),
+h('label',null,'Клиент',h('select',{'aria-label':'Выбор клиента',onchange:e=>pickClient(e.target.value)},
+state.clients.map(c=>h('option',{value:c.client_id,selected:c.client_id===state.clientId},c.client_id+' · '+c.industry)))),
+h('nav',{'aria-label':'Сервис'},h('a',{class:'navlink',href:'#/feed','aria-current':route().name==='feed'?'page':null},
+'Лента событий',count()?h('span',{class:'badge'},'новое '+count()):null))),
+h('main',null,content));}
+
+function widgetView(){
+const c=client();
+return h('section',{class:'widget','aria-labelledby':'w'},
+h('h2',{id:'w'},'Новости для вашего бизнеса'),
+h('p',null,c?'Клиент «'+c.industry+'»: значимых событий — '+count()+'.':'Выберите клиента.'),
+h('a',{class:'btn',href:location.pathname+'?client='+encodeURIComponent(state.clientId||'')+'#/feed',target:'_blank',rel:'noopener noreferrer'},'Открыть ленту'));}
+
+function feedView(){
+if(state.feedError)return h('div',{class:'err',role:'alert'},state.feedError+' ',h('button',{class:'btn ghost',onclick:loadFeed},'Повторить'));
+if(!state.feed)return h('p',{role:'status'},'Загружаем ленту…');
+const topics=[...new Set(state.feed.flatMap(e=>e.topics))];
+const items=state.feed.filter(e=>!state.topic||e.topics.includes(state.topic));
+return[h('label',{class:'meta'},'Тема ',h('select',{'aria-label':'Фильтр по теме',onchange:e=>{state.topic=e.target.value;render();}},
+h('option',{value:''},'все темы'),topics.map(t=>h('option',{value:t,selected:t===state.topic},t)))),
+items.length?h('div',{class:'feed'},items.map(e=>h('article',{class:'card'},
+h('a',{class:'title-link',href:'#/event/'+e.event_id},e.title),
+h('div',{class:'meta'},e.published_at+' · '+e.source_name+' · релевантность '+Math.round(e.relevance_score*100)+'%'),
+h('div',{class:'chips'},e.topics.map(t=>h('span',{class:'chip'},t))),
+h('details',{open:true},h('summary',null,'Почему в вашей ленте'),h('ul',null,e.relevance_reasons.map(x=>h('li',null,x))))))):
+h('p',{class:'empty'},'Для этого клиента значимых новостей нет.')];}
+
+function claims(list,order){
+return list.map(c=>{
+const nums=c.source_ids.map(id=>{let i=order.indexOf(id);if(i<0){order.push(id);i=order.length-1;}return h('button',{class:'fn','aria-label':'Источник '+(i+1),onclick:()=>openSource(id)},'['+(i+1)+']');});
+return h('div',null,h('p',null,h('span',{class:'tag k-'+c.kind,title:KINDS[c.kind][1]},KINDS[c.kind][0]),c.text,' ',nums),
+c.client_features&&c.client_features.length?h('div',{class:'chips'},c.client_features.map(f=>h('span',{class:'chip cl'},f))):null);});}
+
+function insightView(ins){
+const o=[];
+const sec=(t,body,cls)=>h('section',{class:'card block '+(cls||'')},h('h3',null,t),body);
+return h('div',null,
+h('div',{class:'legend','aria-label':'Легенда меток'},Object.entries(KINDS).map(([k,v])=>h('span',null,h('span',{class:'tag k-'+k},v[0]),v[1]))),
+(ins.data_quality_notes||[]).map(n=>h('div',{class:'warn',role:'note'},'⚠ '+n)),
+sec('Что произошло',claims(ins.what_happened,o)),
+sec('Почему это важно клиенту',claims(ins.why_it_matters,o)),
+h('div',{class:'cols block'},
+h('section',{class:'card'},h('h3',null,'Риски'),claims(ins.consequences.risks,o)),
+h('section',{class:'card'},h('h3',null,'Возможности'),claims(ins.consequences.opportunities,o))),
+sec('Что делать',claims(ins.actions,o)),
+sec('Позиция банка',claims(ins.bank_view,o),'bankbox'),
+sec('На чём основан вывод',claims(ins.basis,o)),
+h('div',{class:'card block'},h('b',null,'Помог ли ответ? '),
+h('button',{class:'btn ghost','aria-label':'Полезно',onclick:()=>vote(1)},'👍'),' ',
+h('button',{class:'btn ghost','aria-label':'Не полезно',onclick:()=>vote(-1)},'👎'),' ',
+h('span',{role:'status'},state.vote===null?'':'Спасибо за оценку')));}
+
+function eventView(id){
+if(state.feedError||!state.feed)return feedView();
+const ev=state.feed.find(e=>e.event_id===id);
+if(!ev)return h('p',{class:'err',role:'alert'},'Событие не найдено. ',h('a',{href:'#/feed'},'Вернуться к ленте'));
+return[h('a',{href:'#/feed'},'← К ленте'),h('h2',null,ev.title),
+h('div',{class:'meta'},ev.published_at+' · '+ev.source_name),
+state.insight?insightView(state.insight):
+h('div',{class:'block'},h('button',{class:'btn',disabled:state.running,onclick:()=>generate(ev)},'Построить интерпретацию'),
+h('p',{role:'status','aria-live':'polite'},state.runText))];}
+
+function drawer(){
+const s=state.source;if(!s)return null;
+return h('aside',{class:'drawer',role:'dialog','aria-label':'Первоисточник'},
+h('button',{class:'btn ghost',id:'close',onclick:()=>{state.source=null;render();}},'Закрыть ✕'),
+s.error?h('p',{class:'err',role:'alert'},s.error):[
+h('h3',null,s.doc_title),
+h('div',{class:'meta'},(s.doc_kind==='bank'?'Материал банка':'Новость')+' · '+(s.doc_date||'без даты')+(s.section_path?' · '+s.section_path:'')),
+h('p',null,h('span',{class:'tag '+(s.freshness==='outdated'?'k-ai':'k-fact')},FRESH[s.freshness]||s.freshness)),
+h('blockquote',null,s.text),
+s.url?h('a',{href:s.url,target:'_blank',rel:'noopener noreferrer'},'Открыть оригинал'):null]);}
+
+function render(){
+const r=route();
+if(!state.clientId||!state.clients.length){$app.replaceChildren(h('p',{role:'status'},'Загружаем…'));return;}
+if(r.name==='widget'){$app.replaceChildren(widgetView());return;}
+const content=r.name==='event'?eventView(r.id):feedView();
+$app.replaceChildren(...[shell(content),drawer()].filter(Boolean));
+const close=document.getElementById('close');if(close&&close.focus)close.focus();}
+
+async function pickClient(id){state.clientId=id;store.set('clientId',id);state.topic='';state.insight=null;state.runText='';state.running=false;state.poll++;await loadFeed();}
+
+async function generate(ev){
+const token=++state.poll,cid=state.clientId;
+state.running=true;state.runText='Запускаем анализ…';render();
+try{
+const run=await Data.startRun(cid,ev.event_id);
+while(true){
+await delay(CONFIG.pollMs);
+if(token!==state.poll)return;
+const st=await Data.runStatus(run);
+if(st.status==='failed')throw new Error('Не удалось построить интерпретацию');
+if(st.status==='done')break;
+state.runText='Идёт анализ…';render();}
+state.insight=await Data.insight(cid,ev.event_id);state.runText='';
+}catch(e){if(token!==state.poll)return;state.runText='Ошибка: '+e.message+'. Нажмите кнопку ещё раз.';}
+state.running=false;render();}
+
+async function openSource(id){
+try{state.source=await Data.source(id);}catch(e){state.source={error:e.message};}
+render();}
+
+async function vote(v){
+state.vote=v;
+try{await Data.feedback({client_id:state.clientId,event_id:route().id,rating:v});}catch(e){state.vote=null;}
+render();}
+
+window.addEventListener('hashchange',()=>{state.poll++;state.insight=null;state.runText='';state.running=false;state.vote=null;state.source=null;render();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.source){state.source=null;render();}});
+
+(async function init(){
+try{
+state.clients=await Data.clients();
+if(!state.clients.find(c=>c.client_id===state.clientId))state.clientId=state.clients[0].client_id;
+}catch(e){$app.replaceChildren(h('p',{class:'err',role:'alert'},'Не удалось загрузить клиентов: '+e.message));return;}
+await loadFeed();})();
+</script>
+</body>
+</html>
