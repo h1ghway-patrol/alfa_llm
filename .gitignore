@@ -12,6 +12,7 @@ env/
 .env
 .env.*
 !.env.example
+/app/ml/config/llm.yaml
 
 # Application data
 data/*
@@ -26,6 +27,7 @@ data/*
 htmlcov/
 
 # Build artifacts
+
 build/
 dist/
 *.egg-info/
