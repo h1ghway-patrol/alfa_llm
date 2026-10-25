@@ -9,7 +9,7 @@
 <body>
 <div id="app"></div>
 <script>
-const CONFIG={useMock:true,baseUrl:window.APP_API_URL||'/api',pollMs:1500,paths:{
+const CONFIG={useMock: false,baseUrl: window.APP_API_URL||'/api',pollMs:1500,paths:{
 clients:'/clients',feed:id=>'/clients/'+id+'/events',insight:(c,e)=>'/clients/'+c+'/events/'+e+'/insight',
 run:id=>'/runs/'+id,source:id=>'/sources/'+id,feedback:'/feedback'}};
 
